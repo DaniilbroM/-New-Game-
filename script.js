@@ -31,6 +31,7 @@ signupForm.addEventListener('submit', async function(e) {
         });
         
         const result = await response.json();
+        console.log('Signup result:', result); // Debug log
         
         if (result.success) {
             localStorage.setItem('hasUsers', 'true');
@@ -38,13 +39,14 @@ signupForm.addEventListener('submit', async function(e) {
             signupSuccess.style.display = 'block';
             
             setTimeout(() => {
-                window.location.href = result.redirect;
+                window.location.href = 'home.php'; // Direct to home.php
             }, 1000);
         } else {
             signupError.textContent = result.message;
             signupError.style.display = 'block';
         }
     } catch (error) {
+        console.error('Signup error:', error); // Debug log
         signupError.textContent = 'An error occurred. Please try again.';
         signupError.style.display = 'block';
     }
@@ -65,23 +67,18 @@ loginForm.addEventListener('submit', async function(e) {
         });
         
         const result = await response.json();
+        console.log('Login result:', result); // Debug log
         
         if (result.success) {
             loginError.style.display = 'none';
-            const successDiv = document.createElement('div');
-            successDiv.className = 'form-success';
-            successDiv.textContent = result.message;
-            successDiv.style.display = 'block';
-            loginBox.insertBefore(successDiv, loginForm);
-            
-            setTimeout(() => {
-                window.location.href = result.redirect;
-            }, 1000);
+            // Direct redirect to home.php without waiting
+            window.location.href = 'home.php';
         } else {
             loginError.textContent = result.message;
             loginError.style.display = 'block';
         }
     } catch (error) {
+        console.error('Login error:', error); // Debug log
         loginError.textContent = 'An error occurred. Please try again.';
         loginError.style.display = 'block';
     }

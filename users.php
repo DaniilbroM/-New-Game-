@@ -1,7 +1,4 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 class UserManager {
     private $usersFile = 'users.json';
@@ -9,9 +6,6 @@ class UserManager {
 
     public function __construct() {
         $this->loadUsers();
-        if (!isset($_SESSION['users'])) {
-            $_SESSION['users'] = [];
-        }
     }
 
     private function loadUsers() {
@@ -42,7 +36,15 @@ class UserManager {
                 $changed = true;
             }
             if (!isset($user['level']) || !is_int($user['level'])) {
-                $user['level'] = 1;
+                $user['level'] = 0;
+                $changed = true;
+            }
+            if (!isset($user['xp']) || !is_int($user['xp'])) {
+                $user['xp'] = 0;
+                $changed = true;
+            }
+            if (!isset($user['xp_needed']) || !is_int($user['xp_needed'])) {
+                $user['xp_needed'] = 100;
                 $changed = true;
             }
             if (!isset($user['selected_character']) || $user['selected_character'] === '' || !is_string($user['selected_character'])) {
@@ -57,7 +59,15 @@ class UserManager {
                 $user['game_started'] = false;
                 $changed = true;
             }
-            if (time() - $user['last_chat_reset'] > 3 * 24 * 60 * 60) {
+            if (!isset($user['current_location'])) {
+                $user['current_location'] = 'village';
+                $changed = true;
+            }
+            if (!isset($user['temp_hp'])) {
+                $user['temp_hp'] = null;
+                $changed = true;
+            }
+            if (isset($user['last_chat_reset']) && (time() - $user['last_chat_reset'] > 3 * 24 * 60 * 60)) {
                 $user['chat_history'] = [];
                 $user['last_chat_reset'] = time();
                 $changed = true;
@@ -75,7 +85,10 @@ class UserManager {
     }
 
     public function sanitizeInput($input) {
-        return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+        if ($input === null) {
+            return '';
+        }
+        return htmlspecialchars(trim((string)$input), ENT_QUOTES, 'UTF-8');
     }
 
     public function getAllUsers() {
@@ -83,6 +96,9 @@ class UserManager {
     }
 
     public function getUserByUsername($username) {
+        if ($username === null || $username === '') {
+            return null;
+        }
         $username = $this->sanitizeInput($username);
 
         foreach ($this->users as $user) {
@@ -102,7 +118,6 @@ class UserManager {
                 return true;
             }
         }
-
         return false;
     }
 
@@ -110,6 +125,10 @@ class UserManager {
         $name = $this->sanitizeInput($name);
         $lname = $this->sanitizeInput($lname);
         $username = $this->sanitizeInput($username);
+
+        if (empty($name) || empty($lname) || empty($username) || empty($password)) {
+            return ['success' => false, 'message' => 'All fields are required'];
+        }
 
         foreach ($this->users as $user) {
             if ($user['username'] === $username) {
@@ -129,10 +148,14 @@ class UserManager {
             'chat_history' => [],
             'last_chat_reset' => time(),
             'coins' => 0,
-            'level' => 1,
+            'level' => 0,
+            'xp' => 0,
+            'xp_needed' => 100,
             'selected_character' => null,
             'character_selected' => false,
-            'game_started' => false
+            'game_started' => false,
+            'current_location' => 'village',
+            'temp_hp' => null
         ];
 
         $this->users[] = $newUser;
@@ -143,6 +166,10 @@ class UserManager {
     }
 
     public function loginUser($username, $password) {
+        if ($username === null || $password === null) {
+            return ['success' => false, 'message' => 'Username and password are required'];
+        }
+        
         $username = $this->sanitizeInput($username);
 
         foreach ($this->users as $user) {
@@ -160,6 +187,33 @@ class UserManager {
                     if (!isset($user['last_chat_reset']) || !is_int($user['last_chat_reset'])) {
                         $user['last_chat_reset'] = time();
                     }
+                    if (!isset($user['coins'])) {
+                        $user['coins'] = 0;
+                    }
+                    if (!isset($user['level'])) {
+                        $user['level'] = 0;
+                    }
+                    if (!isset($user['xp'])) {
+                        $user['xp'] = 0;
+                    }
+                    if (!isset($user['xp_needed'])) {
+                        $user['xp_needed'] = 100;
+                    }
+                    if (!isset($user['selected_character'])) {
+                        $user['selected_character'] = null;
+                    }
+                    if (!isset($user['character_selected'])) {
+                        $user['character_selected'] = false;
+                    }
+                    if (!isset($user['game_started'])) {
+                        $user['game_started'] = false;
+                    }
+                    if (!isset($user['current_location'])) {
+                        $user['current_location'] = 'village';
+                    }
+                    if (!isset($user['temp_hp'])) {
+                        $user['temp_hp'] = null;
+                    }
                     return ['success' => true, 'user' => $user];
                 }
                 break;
@@ -169,6 +223,34 @@ class UserManager {
         return ['success' => false, 'message' => 'Invalid username or password'];
     }
 
+    public function addXP($username, $xpGain) {
+        $user = $this->getUserByUsername($username);
+        if (!$user) return false;
+        
+        $user['xp'] += $xpGain;
+        $leveledUp = false;
+        
+        while ($user['xp'] >= $user['xp_needed']) {
+            $user['xp'] -= $user['xp_needed'];
+            $user['level']++;
+            $user['xp_needed'] = 100 + ($user['level'] * 25);
+            $leveledUp = true;
+        }
+        
+        $this->updateUser($user);
+        return ['success' => true, 'leveled_up' => $leveledUp, 'new_level' => $user['level']];
+    }
+
+    public function addCoins($username, $coinsGain) {
+        $user = $this->getUserByUsername($username);
+        if (!$user) return false;
+        
+        $user['coins'] += $coinsGain;
+        $this->updateUser($user);
+        return ['success' => true, 'new_coins' => $user['coins']];
+    }
+
+    // ... rest of existing methods (getChatHistory, sendMessage, etc.) remain the same
     public function getChatHistory($username, $friendUsername) {
         $username = $this->sanitizeInput($username);
         $friendUsername = $this->sanitizeInput($friendUsername);
@@ -198,7 +280,7 @@ class UserManager {
         }
 
         if (!in_array($toUsername, $fromUser['friends'], true)) {
-            return ['success' => false, 'message' => 'You can only send messages to friends.' ];
+            return ['success' => false, 'message' => 'You can only send messages to friends.'];
         }
 
         if (!isset($fromUser['chat_history'][$toUsername]) || !is_array($fromUser['chat_history'][$toUsername])) {
@@ -297,12 +379,10 @@ class UserManager {
 
     public function getNotifications($username) {
         $user = $this->getUserByUsername($username);
-
         if (!$user) {
             return [];
         }
-
-        return $user['pending_requests'];
+        return isset($user['pending_requests']) ? $user['pending_requests'] : [];
     }
 
     public function getUnreadNotifications($username) {
@@ -311,7 +391,7 @@ class UserManager {
             return 0;
         }
 
-        $count = count($user['pending_requests']);
+        $count = isset($user['pending_requests']) ? count($user['pending_requests']) : 0;
         $count += $this->getUnreadMessageCount($username);
 
         return $count;
@@ -362,19 +442,14 @@ class UserManager {
                 continue;
             }
 
-            if (!isset($user['friends']) || !is_array($user['friends'])) {
-                $user['friends'] = [];
-            }
-            if (!isset($user['pending_requests']) || !is_array($user['pending_requests'])) {
-                $user['pending_requests'] = [];
-            }
-
-            if (in_array($currentUsername, $user['friends'], true)) {
+            $friends = isset($user['friends']) ? $user['friends'] : [];
+            if (in_array($currentUsername, $friends, true)) {
                 continue;
             }
 
+            $pendingRequests = isset($user['pending_requests']) ? $user['pending_requests'] : [];
             $isAlreadyRequested = false;
-            foreach ($user['pending_requests'] as $request) {
+            foreach ($pendingRequests as $request) {
                 if ($request['from'] === $currentUsername) {
                     $isAlreadyRequested = true;
                     break;
@@ -412,26 +487,33 @@ class UserManager {
             return ['success' => false, 'message' => 'User not found.'];
         }
 
-        $pendingRequests = [];
+        $pendingRequests = isset($user['pending_requests']) ? $user['pending_requests'] : [];
+        $newPendingRequests = [];
         $found = false;
 
-        foreach ($user['pending_requests'] as $request) {
+        foreach ($pendingRequests as $request) {
             if ($request['from'] === $fromUsername) {
                 $found = true;
                 continue;
             }
-            $pendingRequests[] = $request;
+            $newPendingRequests[] = $request;
         }
 
         if (!$found) {
             return ['success' => false, 'message' => 'Friend request not found.'];
         }
 
-        $user['pending_requests'] = $pendingRequests;
+        $user['pending_requests'] = $newPendingRequests;
 
         if ($accept) {
+            if (!isset($user['friends']) || !is_array($user['friends'])) {
+                $user['friends'] = [];
+            }
             if (!in_array($fromUsername, $user['friends'], true)) {
                 $user['friends'][] = $fromUsername;
+            }
+            if (!isset($fromUser['friends']) || !is_array($fromUser['friends'])) {
+                $fromUser['friends'] = [];
             }
             if (!in_array($username, $fromUser['friends'], true)) {
                 $fromUser['friends'][] = $username;
