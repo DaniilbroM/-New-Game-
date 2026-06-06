@@ -510,23 +510,7 @@ body.dark {
     top: 300px;
 }
 
-.hp-overlay {
-    position: absolute;
-    top: 70%;
-    left: 0;
-    width: 100%;
-    box-sizing: border-box;
-    padding: 4px 0;
-    background: rgba(0, 0, 0, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 12px;
-    z-index: 9999;
-    color: #f4f9e5;
-    display: grid;
-    gap: 2px;
-    font-size: 0.7rem;
-    pointer-events: none;
-}
+
 
 .hp-bar {
     width: 100%;
@@ -2272,4 +2256,153 @@ p.light {
 
 html {
     scroll-behavior: smooth;
+}
+/* Enemy visibility styles */
+.enemy-container {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: 61%;
+    transform: translateY(-50%);
+    z-index: 100;
+    z-index: 9999
+}
+
+.enemy-container:not(.hidden) {
+    display: block;
+}
+
+.enemy-card {
+    text-align: center;
+    background: transparent;
+    position: relative;
+    height: 140px;
+    width: 100px;
+    top: 44%;
+    left: 50%;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.enemy-card.hidden {
+    display: none;
+}
+
+.enemy-sprite {
+    width: 900px;
+    height: 200px;
+    image-rendering: pixelated;
+    position: absolute;
+    top: -56%;
+    left: -15%;
+    animation: moveSheet 1s steps(7) infinite;
+}
+.hp-overlay {
+    position: absolute;
+    top: 70%;
+    left: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 0;
+    background: rgba(0, 0, 0, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 12px;
+    z-index: 9999;
+    color: #f4f9e5;
+    display: grid;
+    gap: 2px;
+    font-size: 0.7rem;
+    pointer-events: none;
+}
+
+.enemy-hp-overlay {
+    margin-bottom: 5px;
+    position: relative;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 4px;
+    border-radius: 8px;
+}
+
+.enemy-hp-overlay .hp-bar {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.enemy-hp-overlay .hp-fill {
+    background: linear-gradient(90deg, #e67e22, #c0392b);
+}
+
+.enemy-hp-value {
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+/* XP Bar */
+.xp-bar-container {
+    margin-top: 8px;
+    width: 100%;
+}
+
+.xp-bar {
+    position: relative;
+    width: 100%;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.xp-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #3498db, #2ecc71);
+    transition: width 0.5s ease-in-out;
+}
+
+.xp-value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 8px;
+    font-weight: bold;
+    text-shadow: 0 0 2px black;
+}
+
+.top-status .xp-bar-container {
+    display: inline-block;
+    width: 150px;
+    margin-left: 15px;
+    vertical-align: middle;
+}
+
+.profile .xp-bar-container {
+    margin-top: 5px;
+}
+/* Status Effects */
+.enemy-status-effects {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.status-effect {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.status-effect.bleed {
+    color: #ff6666;
+    border: 1px solid #ff6666;
+}
+
+.status-effect.burn {
+    color: #ffaa44;
+    border: 1px solid #ffaa44;
 }

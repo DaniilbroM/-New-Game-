@@ -62,8 +62,8 @@ $characters = [
         '0px',
         64,
         [
-            ['name' => 'Fireball', 'icon' => 'fireball.png', 'description' => 'Launch a blazing fireball that scorches enemies from range.'],
-            ['name' => 'Physical Attack', 'icon' => 'Strength.png', 'description' => 'Close physical attack using raw strength and quick strikes.']
+            ['name' => 'Fireball', 'icon' => 'fireball.png', 'description' => 'Launch a blazing fireball, 20-30dmg, 30% to apply burn, +10% dmg to forest enemies .'],
+            ['name' => 'Physical Attack', 'icon' => 'Strength.png', 'description' => 'Close physical attack, 10dmg .']
         ]
     ),
     'knight' => new Character(
@@ -79,8 +79,8 @@ $characters = [
         '-96px',
         32,
         [
-            ['name' => 'Sword Swing', 'icon' => 'SwordSwing.png', 'description' => 'A sweeping sword strike that can cleave through armor.'],
-            ['name' => 'Leg Kick', 'icon' => 'LegKick.png', 'description' => 'A low, powerful kick that stuns enemies briefly.']
+            ['name' => 'Sword Swing', 'icon' => 'SwordSwing.png', 'description' => 'A sword attack, 20dmg, 30% of applying bleed, +10% dmg to city enemies .'],
+            ['name' => 'Leg Kick', 'icon' => 'LegKick.png', 'description' => 'A powerful kick which has 20% chance of stunning the enemy 10-15dmg.']
         ]
     ),
     'traveler' => new Character(
@@ -96,8 +96,8 @@ $characters = [
         '0px',
         64,
         [
-            ['name' => 'Map Strike', 'icon' => 'map.png', 'description' => 'A swift strike using a curled map to confuse enemies.'],
-            ['name' => 'Torch Jab', 'icon' => 'torch.png', 'description' => 'A bright jab with a torch that deals burning damage.']
+            ['name' => 'Map Strike', 'icon' => 'map.png', 'description' => 'Attack An enemy with a map , 10-20dmg, 20% chance of applying bleed, +10% dmg to city enemies .'],
+            ['name' => 'Torch Jab', 'icon' => 'torch.png', 'description' => 'Hit a enemy with a torch, 15-25dmg, 25% chance of applying burn, +10% dmg to forest enemies .']
         ]
     ),
 ];
