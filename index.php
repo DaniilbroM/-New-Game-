@@ -1,5 +1,19 @@
 <?php
 session_start();
+
+if (isset($_GET['logout']) && $_GET['logout'] === 'true') {
+    session_destroy();
+    header("Location: index.php");
+    exit();
+}
+
+
+if (isset($_SESSION['current_user']) && !isset($_GET['logout'])) {
+    header("Location: home.php");
+    exit();
+}
+
+require_once 'users.php';
 require_once 'users.php';
 
 $userManager = new UserManager();

@@ -323,5 +323,36 @@ input[type="password"]:focus {
     background: #00c6c6;
     color: #000;
 }
+.form-error, .form-success {
+    display: none;
+}
 
+.form-error {
+    background: rgba(255, 50, 50, 0.25);
+    color: #ff8080;
+    padding: 12px 15px;
+    margin-top: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border: 1px solid #ff4444;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 500;
+    animation: shakeError 0.5s ease-out, fadeInDown 0.3s ease-out;
+    box-shadow: 0 4px 15px rgba(255, 68, 68, 0.2);
+    backdrop-filter: blur(5px);
+}
+
+.form-success {
+    background: rgba(0, 198, 198, 0.2);
+    color: #00c6c6;
+    padding: 12px 15px;
+    margin-top: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border: 1px solid #00c6c6;
+    text-align: center;
+    font-size: 14px;
+    animation: fadeInDown 0.3s ease-out;
+}
 

@@ -14,7 +14,11 @@
         "level": 1,
         "selected_character": "mage",
         "character_selected": false,
-        "game_started": false
+        "game_started": false,
+        "current_location": "village",
+        "temp_hp": null,
+        "xp": 0,
+        "xp_needed": 100
     },
     {
         "name": "Daniil",
@@ -32,7 +36,11 @@
         "selected_character": "knight",
         "character_selected": true,
         "game_started": true,
-        "last_area": "forest"
+        "last_area": "forest",
+        "current_location": "forest",
+        "temp_hp": null,
+        "xp": 0,
+        "xp_needed": 100
     },
     {
         "name": "Mage",
@@ -48,7 +56,11 @@
         "selected_character": "mage",
         "character_selected": true,
         "game_started": true,
-        "last_area": "forest"
+        "last_area": "forest",
+        "current_location": "forest",
+        "temp_hp": 52,
+        "xp": 0,
+        "xp_needed": 100
     },
     {
         "name": "Traveler",
@@ -64,7 +76,11 @@
         "selected_character": "traveler",
         "character_selected": true,
         "game_started": true,
-        "last_area": "city"
+        "last_area": "city",
+        "current_location": "forest",
+        "temp_hp": null,
+        "xp": 0,
+        "xp_needed": 100
     },
     {
         "name": "BB",
@@ -79,7 +95,11 @@
         "level": 1,
         "selected_character": "knight",
         "character_selected": true,
-        "game_started": true
+        "game_started": true,
+        "current_location": "forest",
+        "temp_hp": 84,
+        "xp": 0,
+        "xp_needed": 100
     },
     {
         "name": "BB",
@@ -89,13 +109,17 @@
         "friends": [],
         "pending_requests": [],
         "chat_history": [],
-        "last_chat_reset": 1780506722,
+        "last_chat_reset": 1780781880,
         "coins": 0,
         "level": 1,
         "selected_character": "traveler",
         "character_selected": true,
         "game_started": true,
-        "last_area": "forest"
+        "last_area": "forest",
+        "current_location": "village",
+        "temp_hp": null,
+        "xp": 0,
+        "xp_needed": 100
     },
     {
         "name": "BB",
@@ -105,12 +129,54 @@
         "friends": [],
         "pending_requests": [],
         "chat_history": [],
-        "last_chat_reset": 1780506849,
-        "coins": 0,
+        "last_chat_reset": 1780781880,
+        "coins": 2,
         "level": 1,
         "selected_character": "knight",
         "character_selected": true,
         "game_started": true,
-        "last_area": "forest"
+        "last_area": "forest",
+        "current_location": "village",
+        "temp_hp": 71,
+        "xp": 3,
+        "xp_needed": 100
+    },
+    {
+        "name": "BB",
+        "LName": "DD",
+        "username": "DaniilbroM8",
+        "password": "$2y$12$tC\/Gaq6BxZUnJ78anZtORO7JQHpJIVHRP1L2mvvhzWvr3PyE4w0v2",
+        "friends": [],
+        "pending_requests": [],
+        "chat_history": [],
+        "last_chat_reset": 1780695108,
+        "coins": 0,
+        "level": 1,
+        "selected_character": null,
+        "character_selected": false,
+        "game_started": false,
+        "current_location": "village",
+        "temp_hp": null,
+        "xp": 0,
+        "xp_needed": 100
+    },
+    {
+        "name": "BB",
+        "LName": "DD",
+        "username": "DaniilbroM9",
+        "password": "$2y$12$6CNDEaLNTT6XL4iBOtogs.a28Ygxpowi1kwlAfje8omBME0GoGTha",
+        "friends": [],
+        "pending_requests": [],
+        "chat_history": [],
+        "last_chat_reset": 1780783259,
+        "coins": 0,
+        "level": 0,
+        "xp": 0,
+        "xp_needed": 100,
+        "selected_character": "traveler",
+        "character_selected": true,
+        "game_started": true,
+        "current_location": "forest",
+        "temp_hp": null
     }
 ]
