@@ -38,16 +38,6 @@ class Character {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
 $characters = [
     'mage' => new Character(
         'Mage',
@@ -62,8 +52,8 @@ $characters = [
         '0px',
         64,
         [
-            ['name' => 'Fireball', 'icon' => 'fireball.png', 'description' => 'Launch a blazing fireball, 20-30dmg, 30% to apply burn, +10% dmg to forest enemies .'],
-            ['name' => 'Physical Attack', 'icon' => 'Strength.png', 'description' => 'Close physical attack, 10dmg .']
+            ['name' => 'Fireball', 'icon' => 'fireball.png', 'description' => 'Launch a blazing fireball, 20-30dmg, 30% to apply burn (3 turns). +10% dmg to forest enemies. Intelligence gives 5% crit chance per point!'],
+            ['name' => 'Physical Attack', 'icon' => 'Strength.png', 'description' => 'Close physical attack, 10-15dmg + strength bonus. Intelligence gives 5% crit chance per point!']
         ]
     ),
     'knight' => new Character(
@@ -79,8 +69,8 @@ $characters = [
         '-96px',
         32,
         [
-            ['name' => 'Sword Swing', 'icon' => 'SwordSwing.png', 'description' => 'A sword attack, 20dmg, 30% of applying bleed, +10% dmg to city enemies .'],
-            ['name' => 'Leg Kick', 'icon' => 'LegKick.png', 'description' => 'A powerful kick which has 20% chance of stunning the enemy 10-15dmg.']
+            ['name' => 'Sword Swing', 'icon' => 'SwordSwing.png', 'description' => 'A powerful sword attack, 15-25dmg + strength bonus, 30% chance to apply bleed (2 turns). +10% dmg to city enemies. Intelligence gives 5% crit chance!'],
+            ['name' => 'Leg Kick', 'icon' => 'LegKick.png', 'description' => 'A powerful kick, 10-15dmg + strength bonus, 20% chance of stunning the enemy. Intelligence gives 5% crit chance!']
         ]
     ),
     'traveler' => new Character(
@@ -96,10 +86,9 @@ $characters = [
         '0px',
         64,
         [
-            ['name' => 'Map Strike', 'icon' => 'map.png', 'description' => 'Attack An enemy with a map , 10-20dmg, 20% chance of applying bleed, +10% dmg to city enemies .'],
-            ['name' => 'Torch Jab', 'icon' => 'torch.png', 'description' => 'Hit a enemy with a torch, 15-25dmg, 25% chance of applying burn, +10% dmg to forest enemies .']
+            ['name' => 'Map Strike', 'icon' => 'map.png', 'description' => 'Attack with a map, 10-20dmg + strength bonus, 20% chance to apply bleed. +10% dmg to city enemies. Intelligence gives 5% crit chance per point!'],
+            ['name' => 'Torch Jab', 'icon' => 'torch.png', 'description' => 'Hit with a torch, 15-25dmg + strength bonus, 25% chance to apply burn (3 turns). +10% dmg to forest enemies. Intelligence gives 5% crit chance per point!']
         ]
     ),
 ];
-
 ?>

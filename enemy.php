@@ -33,15 +33,30 @@ class Enemy {
     }
 }
 
-function getEnemyByType($type) {
+function getEnemyByType($type, $randomHp = true) {
+    // Base stats for mushroom
+    $baseHealth = 50;
+    $baseStrength = 3;
+    $baseStamina = 20;
+    
+    // Random HP between 40 and 60
+    if ($randomHp) {
+        $health = rand(40, 60);
+    } else {
+        $health = $baseHealth;
+    }
+    
+    // Strength can also vary slightly based on HP (tougher enemies hit harder)
+    $strength = $baseStrength + round(($health - 40) / 10);
+    
     $enemies = [
         'mushroom' => new Enemy(
             'mushroom',
             'Mushroom',
-            50,
-            3,
-            20,
-            ['hp' => 50, 'strength' => 3, 'stamina' => 20, 'intelligence' => 2],
+            $health,
+            $strength,
+            $baseStamina,
+            ['hp' => $health, 'strength' => $strength, 'stamina' => $baseStamina, 'intelligence' => 1],
             'Mushroom/Mushroom-Idle.png',
             'Mushroom/Mushroom-Attack.png',
             'Mushroom/Mushroom-Die.png',
@@ -55,11 +70,19 @@ function getEnemyByType($type) {
 }
 
 function getRandomEnemyForLocation($location) {
-    if ($location === 'forest') {
-        return getEnemyByType('mushroom');
-    } else if ($location === 'city') {
-        return getEnemyByType('mushroom');
+    // 1/3 chance to encounter enemy, 1/3 nothing, 1/3 lost
+    $encounterRoll = rand(1, 3);
+    
+    if ($encounterRoll == 1) {
+        // Encounter enemy
+        $enemy = getEnemyByType('mushroom', true);
+        return ['type' => 'encounter', 'enemy' => $enemy];
+    } elseif ($encounterRoll == 2) {
+        // Nothing found
+        return ['type' => 'none', 'enemy' => null];
+    } else {
+        // Lost - returns special state
+        return ['type' => 'lost', 'enemy' => null];
     }
-    return getEnemyByType('mushroom');
 }
 ?>

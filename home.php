@@ -42,7 +42,7 @@ $safeLName = htmlspecialchars($currentUser['LName'], ENT_QUOTES, 'UTF-8');
     <div class="xp-bar-container">
         <div class="xp-bar">
             <div class="xp-fill" style="width: 0%;"></div>
-            <span class="xp-value">0 / 100 XP</span>
+            <span class="xp-value">0 / 6 XP</span>
         </div>
     </div>
   </div>
@@ -66,8 +66,27 @@ $selectedCharacter = $selectedCharacterKey && isset($characters[$selectedCharact
 $savedLocation = $currentUser['current_location'] ?? 'village';
 ?>
 
+<!-- Victory Modal -->
+<div id="victoryModal" class="game-modal hidden">
+    <div class="game-modal-content victory-content">
+        <h1 class="modal-title victory-title">YOU WON!!</h1>
+        <p class="modal-message">Future Updates Might Be Incoming</p>
+        <button class="modal-restart-btn" id="victoryRestartBtn">Restart Game</button>
+    </div>
+</div>
+
+<!-- Game Over Modal -->
+<div id="gameOverModal" class="game-modal hidden">
+    <div class="game-modal-content gameover-content">
+        <h1 class="modal-title gameover-title">YOU LOST!</h1>
+        <p class="modal-message">Better luck next time, adventurer!</p>
+        <button class="modal-restart-btn" id="gameOverRestartBtn">Restart Game</button>
+    </div>
+</div>
+
 <div class="gameStartOverlay">
     <div class="gameStartPanel" data-saved-location="<?php echo htmlspecialchars($savedLocation, ENT_QUOTES, 'UTF-8'); ?>">
+        
         <button class="gameStartButton" aria-label="Start the Game"></button>
 
         <div class="village-typewrap" aria-hidden="false">
@@ -76,10 +95,14 @@ $savedLocation = $currentUser['current_location'] ?? 'village';
             <p class="village-typewriter-secondary"></p>
         </div>
 
-        <div class="village-actions">
+        <!-- Village Actions - Only visible when in village -->
+        <div class="village-actions" id="villageActions">
             <button class="goForest" data-action="forest">Go Through The Forest</button>
             <button class="goCity" data-action="city">Go through a city</button>
         </div>
+
+        <!-- Location Buttons Container - Dynamically populated -->
+        <div class="location-buttons-container hidden" id="locationButtonsContainer"></div>
 
 <?php if ($selectedCharacter): ?>
         <div class="character-wrapper">
@@ -97,9 +120,9 @@ $savedLocation = $currentUser['current_location'] ?? 'village';
             </div>
         </div>
         <div class="battle-ui hidden">
-    <div class="battle-header">Attacks</div>
-    <div class="battle-attacks"></div>
-</div>
+            <div class="battle-header">Attacks</div>
+            <div class="battle-attacks"></div>
+        </div>
 <?php endif; ?>
 
         <div class="start-character-preview">
@@ -155,11 +178,6 @@ $savedLocation = $currentUser['current_location'] ?? 'village';
     </div>
 </div>
 
-
-
-
-
-
 <nav class="profile">
   <button class="close">Close</button>
   <div class="profile-details">
@@ -173,8 +191,8 @@ $savedLocation = $currentUser['current_location'] ?? 'village';
       <p class="profile-value profile-level"><?php echo $currentUser['level'] ?? 0; ?></p>
       <div class="xp-bar-container">
           <div class="xp-bar">
-              <div class="xp-fill profile-xp-fill" style="width: <?php echo (($currentUser['xp'] ?? 0) / ($currentUser['xp_needed'] ?? 100)) * 100; ?>%;"></div>
-              <span class="xp-value profile-xp-value"><?php echo ($currentUser['xp'] ?? 0) . ' / ' . ($currentUser['xp_needed'] ?? 100) . ' XP'; ?></span>
+              <div class="xp-fill profile-xp-fill" style="width: <?php echo (($currentUser['xp'] ?? 0) / max(1, ($currentUser['xp_needed'] ?? 6))) * 100; ?>%;"></div>
+              <span class="xp-value profile-xp-value"><?php echo ($currentUser['xp'] ?? 0) . ' / ' . ($currentUser['xp_needed'] ?? 6) . ' XP'; ?></span>
           </div>
       </div>
   </div>
@@ -222,7 +240,7 @@ const currentUserState = <?php echo json_encode([
     'coins' => $currentUser['coins'] ?? 0,
     'level' => $currentUser['level'] ?? 0,
     'xp' => $currentUser['xp'] ?? 0,
-    'xp_needed' => $currentUser['xp_needed'] ?? 100,
+    'xp_needed' => $currentUser['xp_needed'] ?? 6,
     'game_started' => $currentUser['game_started'] ?? false,
     'character_selected' => $currentUser['character_selected'] ?? false,
     'current_location' => $currentUser['current_location'] ?? 'village',
