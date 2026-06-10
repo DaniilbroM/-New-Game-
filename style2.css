@@ -30,6 +30,42 @@
    }
 }
 
+/* Move-right animation for traveling to location - goes to right side */
+@keyframes slideToRight {
+    from { left: 0; }
+    to { left: calc(100% - 90px); }
+}
+
+/* Move to enemy position - goes to 50% where enemy is */
+@keyframes slideToEnemy {
+    from { left: 0; }
+    to { left: 50%; }
+}
+
+/* Return from enemy position */
+@keyframes slideFromEnemy {
+    from { left: 50%; }
+    to { left: 0; }
+}
+
+/* Enemy Death Animation - 15 steps */
+@keyframes moveSheetDie {
+    from { transform: translate3d(0px, 0, 0); }
+    to { transform: translate3d(-1500%, 0, 0); }
+}
+
+/* Enemy Stun Animation - 18 steps */
+@keyframes moveSheetStun {
+    from { transform: translate3d(0px, 0, 0); }
+    to { transform: translate3d(-1800%, 0, 0); }
+}
+
+/* Enemy Hit Animation - 5 steps */
+@keyframes moveSheetHit {
+    from { transform: translate3d(0px, 0, 0); }
+    to { transform: translate3d(-500%, 0, 0); }
+}
+
 .loading-overlay {
     display: none;
     position: absolute;
@@ -196,6 +232,7 @@ body.dark {
     animation-name: show2 1s ease-in-out;
     border-radius: 15px;
     text-align: center;
+    z-index: 10000;
    
 }
 .notifications.hide {
@@ -211,6 +248,7 @@ body.dark {
     text-align:center;
     position:absolute;
     animation: popin2 1s ease-in-out;
+    z-index: 10000;
     
 }
 .notifications.show p {
@@ -247,6 +285,7 @@ body.dark {
     animation-name: show2 1s ease-in-out;
     border-radius: 15px;
     text-align: center;
+    z-index: 10000;
 }
 .achievements.hide {
     display:none;
@@ -261,6 +300,7 @@ body.dark {
     text-align:center;
     position:absolute;
     animation: popin2 1s ease-in-out;
+    z-index: 10000;
 }
 .achievements.show p {
     font-size: 30px;
@@ -302,10 +342,16 @@ body.dark {
     align-items: center;
     text-align: center;
     backdrop-filter: blur(4px);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 200;
 }
 
 .character-card {
     margin-top: 4px;
+    width: 100%;
 }
 
 .character-card-preview {
@@ -330,6 +376,7 @@ body.dark {
     text-align: center;
     backdrop-filter: blur(4px);
     gap: 10px;
+    z-index: 100;
 }
 /* Ensure previews are clipped by the panel container */
 .gameStartPanel {
@@ -345,7 +392,7 @@ body.dark {
     line-height: 1.4;
     font-weight: 700;
     position: relative;
-    z-index: 100;
+    z-index: 101;
     display: inline-block;
     font-family: inherit;
     overflow: hidden;
@@ -374,7 +421,7 @@ body.dark {
     top: 8px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 6;
+    z-index: 101;
     display: none;
     flex-direction: column;
     align-items: flex-start;
@@ -393,7 +440,7 @@ body.dark {
     inset: 0;
     background: rgba(102, 102, 102, 0.55);
     border-radius: 12px;
-    z-index: 5;
+    z-index: 100;
 }
 
 .gameStartPanel.selected .village-typewrap {
@@ -431,7 +478,7 @@ body.dark {
     display: none;
     flex-direction: column;
     gap: 20px;
-    z-index: 10;
+    z-index: 101;
     pointer-events: auto;
     opacity: 0;
     visibility: hidden;
@@ -510,12 +557,9 @@ body.dark {
     top: 300px;
 }
 
-
-
 .hp-bar {
     width: 100%;
 }
-
 
 .hp-label {
     font-weight: 700;
@@ -563,7 +607,7 @@ body.dark {
     border-radius: 18px;
     box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
     color: #f4f9e5;
-    z-index: 12;
+    z-index: 102;
 }
 
 .battle-ui.hidden {
@@ -613,217 +657,307 @@ body.dark {
     transform: translateX(0);
 }
 
-/* Move-right animation to push the character toward the right side of the game panel. */
-@keyframes slideToRight {
-    from { left: 0; }
-    to { left: calc(100% - 90px); }
-}
-
 /* Generic move that slides the wrapper to the right and keeps the sprite frame animation separate. */
 .character-in-game.move {
     animation: slideToRight 1.2s ease-in-out forwards;
 }
 
-
-
-
-/* For each Character in game have different EX" This is for the knight" Below character-in-game.knight */
-.character-in-game {
-   
-   left: 0;
-    transform: translateX(0);
-    transition: transform 2s ease-in-out;
-    position:relative;
-    top: 66%;
-  background:transparent;
-  width: 57.5px;
-    height: 125px;
-    overflow:hidden;
-  
-    
-    
-   
-    
-
-}
-.character-in-game.stand {
-    left: 0;
-    transform: translateX(0);
-}
-.character-in-game.move-start {
-    transform: translateX(-120%);
-}
-/* For each Character in game have different EX: This is for the knight Below, character-in-game2.knight */
-.character-in-game2 {
-    position:absolute;
-width: 500px;
-height:500px;
-    display: block;
-    animation: moveSheet 5s steps(8) infinite;
-   top:-340px;
-   left: -10.4px;
-    
+/* Attack move that slides to enemy */
+.character-in-game.move2 {
+    animation: slideToEnemy 0.8s ease-in-out forwards;
 }
 
+/* Return after attack */
+.character-in-game.return {
+    animation: slideFromEnemy 0.8s ease-in-out forwards;
+}
 
 .pixelart {
     image-rendering: pixelated;
 }
-/*traveler*/
+
+/* ============================================ */
+/* TRAVELER STYLES                              */
+/* ============================================ */
+.character-in-game.traveler {
+    left: 0;
+    position: relative;
+    top: 25%;
+    background: transparent;
+    width: 57.5px;
+    height: 125px;
+    overflow: hidden;
+    z-index: 100;
+}
 .character-in-game.traveler.move {
     position: relative;
     top: 27%;
-    margin-top:30px;
+    margin-top: 30px;
     left: 0;
     background: transparent;
     width: 85px;
     height: 100px;
     overflow: hidden;
     animation: slideToRight 1.2s ease-in-out forwards;
+    z-index: 100;
 }
-
-.gameStartPanel.city .character-in-game.traveler.move {
+.character-in-game.traveler.move2 {
+    position: relative;
+    top: 27%;
+    margin-top: 30px;
+    left: 0;
+    background: transparent;
+    width: 85px;
+    height: 100px;
+    overflow: hidden;
+    animation: slideToEnemy 0.8s ease-in-out forwards;
+    z-index: 100;
+}
+.character-in-game.traveler.return {
+    position: relative;
+    top: 27%;
+    margin-top: 30px;
+    left: 50%;
+    background: transparent;
+    width: 85px;
+    height: 100px;
+    overflow: hidden;
+    animation: slideFromEnemy 0.8s ease-in-out forwards;
+    z-index: 100;
+}
+.gameStartPanel.city .character-in-game.traveler.move2 {
     margin-top: 37px;
 }
-
 .character-in-game.traveler.attack {
-  left: -40%;
-    position:relative;
+    left: 50%;
+    position: relative;
     top: 87%;
-  background:transparent;
-  width: 85px;
+    background: transparent;
+    width: 85px;
     height: 140px;
-    overflow:hidden;
+    overflow: hidden;
+    z-index: 101;
 }
 .character-in-game.traveler.attack2 {
-left: -40%;
-    position:relative;
+    left: 50%;
+    position: relative;
     top: 87%;
-  background:transparent;
-  width: 85px;
+    background: transparent;
+    width: 85px;
     height: 140px;
-    overflow:hidden;
+    overflow: hidden;
+    z-index: 101;
 }
 .character-in-game.traveler.stand {
     left: 0;
-    position:relative;
+    position: relative;
     top: 25%;
-    background:transparent;
+    background: transparent;
     width: 57.5px;
     height: 125px;
-    overflow:hidden;
+    overflow: hidden;
+    z-index: 100;
 }
-
-.character-in-game2.traveler.move{
-    position:absolute;
+.character-in-game2.traveler {
+    position: absolute;
     width: 500px;
-    height:500px;
+    height: 500px;
+    display: block;
+    animation: moveSheet 5s steps(8) infinite;
+    top: -340px;
+    left: -10px;
+    z-index: 100;
+}
+.character-in-game2.traveler.move {
+    position: absolute;
+    width: 500px;
+    height: 500px;
     display: block;
     animation: moveSheet 1s steps(6) infinite;
     top: 0px;
     left: 0px;
-} 
-.character-in-game2.taveler.attack {
-     position:absolute;
-width: 500px;
-height:500px;
+    z-index: 100;
+}
+.character-in-game2.traveler.move2 {
+    position: absolute;
+    width: 500px;
+    height: 500px;
     display: block;
-    animation: moveSheet 1s steps(6) 1;
-   top:-100px;
-   left:-15px;
+    animation: moveSheet 1s steps(6) infinite;
+    top: 0px;
+    left: 0px;
+    z-index: 100;
+}
+.character-in-game2.traveler.return {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    display: block;
+    animation: moveSheet 1s steps(6) infinite;
+    top: 0px;
+    left: 0px;
+    z-index: 100;
+}
+.character-in-game2.traveler.attack {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    display: block;
+    animation: moveSheet 2s steps(6) 1;
+    top: -100px;
+    left: -15px;
+    z-index: 101;
 }
 .character-in-game2.traveler.attack2 {
-     position:absolute;
-width: 500px;
-height:500px;
+    position: absolute;
+    width: 500px;
+    height: 500px;
     display: block;
-    animation: moveSheet 1s steps(6) 1;
-   top:-220px;
-   left: -15px;
+    animation: moveSheet 2s steps(6) 1;
+    top: -220px;
+    left: -15px;
+    z-index: 101;
 }
 .character-in-game2.traveler.stand {
-    position:absolute;
+    position: absolute;
     width: 500px;
-    height:500px;
+    height: 500px;
     display: block;
     animation: moveSheet 5s steps(8) infinite;
-   top:-340px;
-   left: -10px;
+    top: -340px;
+    left: -10px;
+    z-index: 100;
 }
 
-
-/*for Everything in Mage*/
+/* ============================================ */
+/* MAGE STYLES                                  */
+/* ============================================ */
 .character-in-game.mage {
-   left: 0;
-    position:relative;
+    left: 0;
+    position: relative;
     top: 60%;
-    margin-top:10px;
-    background:transparent;
+    margin-top: 10px;
+    background: transparent;
     width: 105px;
     height: 105px;
-    overflow:hidden;
+    overflow: hidden;
+    z-index: 100;
 }
 .character-in-game.mage.move {
     position: relative;
     top: 69%;
-    margin-top:10px;
+    margin-top: 10px;
     left: 0;
     background: transparent;
     width: 105px;
     height: 105px;
     overflow: hidden;
     animation: slideToRight 1.2s ease-in-out forwards;
+    z-index: 100;
 }
-/* Later will make a keyframes, for moving but same animation as standing probably*/
-.character-in-game2.mage.stand {
-position:absolute;
-width: 420px;
-height:420px;
+.character-in-game.mage.move2 {
+    position: relative;
+    top: 69%;
+    margin-top: 10px;
+    left: 0;
+    background: transparent;
+    width: 105px;
+    height: 105px;
+    overflow: hidden;
+    animation: slideToEnemy 0.8s ease-in-out forwards;
+    z-index: 100;
+}
+.character-in-game.mage.return {
+    position: relative;
+    top: 69%;
+    margin-top: 10px;
+    left: 50%;
+    background: transparent;
+    width: 105px;
+    height: 105px;
+    overflow: hidden;
+    animation: slideFromEnemy 0.8s ease-in-out forwards;
+    z-index: 100;
+}
+.character-in-game.mage.attack {
+    left: 50%;
+    position: relative;
+    top: 60%;
+    margin-top: 10px;
+    background: transparent;
+    width: 105px;
+    height: 105px;
+    overflow: hidden;
+    z-index: 101;
+}
+.character-in-game2.mage {
+    position: absolute;
+    width: 420px;
+    height: 420px;
     display: block;
     animation: moveSheet 2s steps(4) infinite;
     top: 0px;
+    z-index: 100;
+}
+.character-in-game2.mage.stand {
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    display: block;
+    animation: moveSheet 2s steps(4) infinite;
+    top: 0px;
+    z-index: 100;
 }
 .character-in-game2.mage.move {
-position:absolute;
-width: 420px;
-height:420px;
+    position: absolute;
+    width: 420px;
+    height: 420px;
     display: block;
     animation: moveSheet 0.8s steps(4) infinite;
     top: 0px;
+    z-index: 100;
+}
+.character-in-game2.mage.move2 {
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    display: block;
+    animation: moveSheet 0.8s steps(4) infinite;
+    top: 0px;
+    z-index: 100;
+}
+.character-in-game2.mage.return {
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    display: block;
+    animation: moveSheet 0.8s steps(4) infinite;
+    top: 0px;
+    z-index: 100;
 }
 .character-in-game2.mage.attack {
-position:absolute;
-width: 420px;
-height:420px;
+    position: absolute;
+    width: 420px;
+    height: 420px;
     display: block;
     animation: moveSheet 2s steps(4) infinite;
     top: -315px;
-
+    z-index: 101;
 }
-      
 
-
-
-
-
-
-
-
-
-
-/* Those are notes for Knight Animation, which would be implemented later*/
+/* ============================================ */
+/* KNIGHT STYLES                                */
+/* ============================================ */
 .character-in-game.knight {
-   
     left: 0;
-    position:relative;
+    position: relative;
     top: 85%;
-    margin-top:35px;
-  background:transparent;
-  width: 85px;
+    margin-top: 35px;
+    background: transparent;
+    width: 85px;
     height: 85px;
-    
-    overflow:hidden;
-    
+    overflow: hidden;
+    z-index: 100;
 }
 .character-in-game.knight.move {
     position: relative;
@@ -834,61 +968,113 @@ height:420px;
     height: 85px;
     overflow: hidden;
     animation: slideToRight 1.2s ease-in-out forwards;
+    z-index: 100;
 }
-/*specifically position for kick and sword attack*/
-.character-in-game.knight.attack {
-   
-left: -40%;
-    position:relative;
+.character-in-game.knight.move2 {
+    position: relative;
     top: 75%;
-  background:transparent;
-  width: 85px;
-    height: 75px;
-    
-  overflow:hidden;
-    
+    left: 0;
+    background: transparent;
+    width: 75px;
+    height: 85px;
+    overflow: hidden;
+    animation: slideToEnemy 0.8s ease-in-out forwards;
+    z-index: 100;
 }
-
-
-.character-in-game2.knight.move {
-      position:absolute;
-width: 420px;
-height:420px;
-    display: block;
-    animation: moveSheet .8s steps(5) infinite;
-    top:0px;
+.character-in-game.knight.return {
+    position: relative;
+    top: 75%;
+    left: 50%;
+    background: transparent;
+    width: 75px;
+    height: 85px;
+    overflow: hidden;
+    animation: slideFromEnemy 0.8s ease-in-out forwards;
+    z-index: 100;
 }
-
-.character-in-game2.knight.stand {
-      position:absolute;
-width: 420px;
-height:420px;
+.character-in-game.knight.attack {
+    left: 50%;
+    position: relative;
+    top: 75%;
+    background: transparent;
+    width: 75px;
+    height: 85px;
+    overflow: hidden;
+    z-index: 101;
+}
+.character-in-game.knight.attack2 {
+    left: 50%;
+    position: relative;
+    top: 75%;
+    background: transparent;
+    width: 75px;
+    height: 85px;
+    overflow: hidden;
+    z-index: 101;
+}
+.character-in-game2.knight {
+    position: absolute;
+    width: 420px;
+    height: 420px;
     display: block;
     animation: moveSheet 4.5s steps(4) infinite;
     top: -230px;
+    z-index: 100;
 }
-.character-in-game2.knight.kick {
-       position:absolute;
-width: 420px;
-height:420px;
+.character-in-game2.knight.stand {
+    position: absolute;
+    width: 420px;
+    height: 420px;
     display: block;
-    animation: moveSheet 2s steps(5) infinite;
-    top: -160px;
+    animation: moveSheet 4.5s steps(4) infinite;
+    top: -230px;
+    z-index: 100;
 }
-.character-in-game2.knight.sword {
-         position:absolute;
-width: 420px;
-height:420px;
+.character-in-game2.knight.move {
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    display: block;
+    animation: moveSheet 0.8s steps(5) infinite;
+    top: 0px;
+    z-index: 100;
+}
+.character-in-game2.knight.move2 {
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    display: block;
+    animation: moveSheet 0.8s steps(5) infinite;
+    top: 0px;
+    z-index: 100;
+}
+.character-in-game2.knight.return {
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    display: block;
+    animation: moveSheet 0.8s steps(5) infinite;
+    top: 0px;
+    z-index: 100;
+}
+.character-in-game2.knight.attack {
+    position: absolute;
+    width: 420px;
+    height: 420px;
     display: block;
     animation: moveSheet 2s steps(5) infinite;
     top: -85px;
-
+    z-index: 101;
 }
-
-
-
-
-
+.character-in-game2.knight.attack2 {
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    display: block;
+    animation: moveSheet 2s steps(5) infinite;
+    top: -160px;
+    z-index: 101;
+}
 
 .gameStartButton {
     width: 78%;
@@ -904,6 +1090,7 @@ height:420px;
     border-radius: 18px;
     box-shadow: 0 16px 60px rgba(0, 0, 0, 0.35);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    z-index: 101;
 }
 
 .gameStartButton:hover {
@@ -920,7 +1107,7 @@ height:420px;
     display: none;
     justify-content: center;
     padding: 0 10px;
-    z-index: 4;
+    z-index: 101;
 }
 
 .gameStartPanel.selected {
@@ -978,7 +1165,6 @@ height:420px;
     animation: moveSheet 2s steps(6) infinite;
     top: 20px;
     left: -45px;
-    
 }
 
 .character-select-button {
@@ -1103,9 +1289,6 @@ height:420px;
     transform: translateY(-1px);
 }
 
-
-
-
 .character-stats-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1220,7 +1403,7 @@ height:420px;
     position: fixed;
     top: 15vh;
     right: 18px;
-    z-index: 80;
+    z-index: 10000;
     display: flex;
     gap: 16px;
     align-items: center;
@@ -1271,7 +1454,7 @@ height:420px;
     right: calc(20px + 12vw);
     height: 75vh;
     top: 18vh;
-    z-index: 30;
+    z-index: 10000;
     background: rgba(30, 30, 30, 0.98);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 22px;
@@ -1289,7 +1472,7 @@ height:420px;
     right: 20px;
     height: 75vh;
     top: 100vh;
-    z-index: 30;
+    z-index: 10000;
     background: rgba(30, 30, 30, 0.98);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 22px;
@@ -1526,11 +1709,6 @@ body.light .friend-card .friend-username {
     box-shadow: 0 12px 24px rgba(0, 198, 198, 0.25);
 }
 
-
-
-
-
-
 .b3 {
     cursor: pointer;
     font-weight: bold;
@@ -1621,7 +1799,7 @@ body.light .friend-card .friend-username {
     animation-name: popout;
     animation-duration: 0.6s;
     animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    z-index: 100;
+    z-index: 10000;
 }
 
 .popout.show.dark {
@@ -1647,6 +1825,7 @@ body.light .friend-card .friend-username {
     animation-name: popin;
     animation-duration: 0.6s;
     animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 10000;
 }
 
 .popout a, .popout p {
@@ -1672,7 +1851,7 @@ body.light .friend-card .friend-username {
     transition: all 0.3s ease;
     padding: 10px 20px;
     border-radius: 8px;
-    z-index: 1000;
+    z-index: 10000;
     position: fixed;
 }
 
@@ -1708,7 +1887,7 @@ body.light .friend-card .friend-username {
 }
 
 .top {
-    z-index: 999;
+    z-index: 10000;
     height: 12vh;
     background: rgba(30, 30, 30, 0.95);
     backdrop-filter: blur(10px);
@@ -1787,7 +1966,7 @@ p.light {
     top: 25vh;
     left: 50%;
     transform: translate(-50%, -20px) scale(0.95);
-    z-index: 1000;
+    z-index: 10000;
     visibility: hidden;
     border-radius: 24px;
     box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
@@ -2033,6 +2212,7 @@ p.light {
     border: 1px solid rgba(255, 255, 255, 0.18);
     box-shadow: 0 16px 28px rgba(255, 90, 90, 0.18);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    z-index: 10001;
 }
 
 .close:hover {
@@ -2257,15 +2437,15 @@ p.light {
 html {
     scroll-behavior: smooth;
 }
+
 /* Enemy visibility styles */
 .enemy-container {
     display: none;
     position: absolute;
-    left: 50%;
+    left: 55%;
     top: 61%;
-    transform: translateY(-50%);
-    z-index: 100;
-    z-index: 9999
+    transform: translate(-50%, -50%);
+    z-index: 102;
 }
 
 .enemy-container:not(.hidden) {
@@ -2280,7 +2460,8 @@ html {
     width: 100px;
     top: 44%;
     left: 50%;
-    z-index: 9999;
+    transform: translateX(-50%);
+    z-index: 102;
     overflow: hidden;
 }
 
@@ -2296,7 +2477,25 @@ html {
     top: -56%;
     left: -15%;
     animation: moveSheet 1s steps(7) infinite;
+    z-index: 102;
 }
+
+.enemy-sprite.hit {
+    animation: none;
+}
+
+.enemy-sprite.dying {
+    animation: moveSheetDie 0.8s steps(15) forwards;
+}
+
+.enemy-sprite.stunned-effect {
+    animation: moveSheetStun 0.8s steps(18) forwards;
+}
+
+.enemy-sprite.hit-effect {
+    animation: moveSheetHit 0.4s steps(5) forwards;
+}
+
 .hp-overlay {
     position: absolute;
     top: 70%;
@@ -2307,7 +2506,7 @@ html {
     background: rgba(0, 0, 0, 0.72);
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 12px;
-    z-index: 9999;
+    z-index: 103;
     color: #f4f9e5;
     display: grid;
     gap: 2px;
@@ -2318,7 +2517,7 @@ html {
 .enemy-hp-overlay {
     margin-bottom: 5px;
     position: relative;
-    z-index: 10;
+    z-index: 103;
     background: rgba(0, 0, 0, 0.7);
     padding: 4px;
     border-radius: 8px;
@@ -2336,6 +2535,62 @@ html {
     color: white;
     font-size: 10px;
     font-weight: bold;
+}
+
+/* Status Effects - on top of enemy */
+.enemy-status-effects {
+    position: absolute;
+    top: -25px;
+    left: 0;
+    right: 0;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    z-index: 104;
+}
+
+.status-effect {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.status-effect.bleed {
+    color: #ff6666;
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid #ff6666;
+}
+
+.status-effect.bleed::before {
+    content: "🩸";
+    font-size: 10px;
+}
+
+.status-effect.burn {
+    color: #ffaa44;
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid #ffaa44;
+}
+
+.status-effect.burn::before {
+    content: "🔥";
+    font-size: 10px;
+}
+
+.status-effect.stun {
+    color: #ffcc44;
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid #ffcc44;
+}
+
+.status-effect.stun::before {
+    content: "⚡";
+    font-size: 10px;
 }
 
 /* XP Bar */
@@ -2382,27 +2637,292 @@ html {
 .profile .xp-bar-container {
     margin-top: 5px;
 }
-/* Status Effects */
-.enemy-status-effects {
+
+/* Reset Button - Small circle top left */
+.reset-btn {
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(255, 50, 50, 0.7);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    z-index: 10001;
     display: flex;
-    gap: 8px;
+    align-items: center;
     justify-content: center;
-    margin-top: 8px;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
 }
 
-.status-effect {
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 10px;
-    background: rgba(0, 0, 0, 0.7);
+.reset-btn:hover {
+    background: rgba(255, 0, 0, 0.9);
+    transform: scale(1.1);
 }
 
-.status-effect.bleed {
-    color: #ff6666;
-    border: 1px solid #ff6666;
+/* Reset Modal */
+.reset-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20000;
 }
 
-.status-effect.burn {
-    color: #ffaa44;
-    border: 1px solid #ffaa44;
+.reset-modal-content {
+    background: #1e1e1e;
+    padding: 30px;
+    border-radius: 16px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    min-width: 300px;
+}
+
+.reset-modal-content input {
+    width: 100%;
+    padding: 10px;
+    margin: 15px 0;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background: #2b2b2b;
+    color: white;
+}
+
+.reset-modal-content button {
+    padding: 8px 20px;
+    margin: 5px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+}
+
+.reset-confirm-btn {
+    background: #ff4444;
+    color: white;
+}
+
+.reset-cancel-btn {
+    background: #444;
+    color: white;
+}
+.gameStartPanel.adventure[style*="random1.png"] {
+    filter: sepia(0.3) brightness(0.9);
+}
+
+.gameStartPanel.adventure[style*="random1.png"]::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 48px;
+    opacity: 0.5;
+    pointer-events: none;
+}
+/* Location buttons container */
+.location-buttons-container {
+    position: absolute;
+    right: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    z-index: 101;
+    pointer-events: auto;
+    opacity: 0;
+    visibility: hidden;
+}
+
+.gameStartPanel.selected .location-buttons-container {
+    display: flex;
+    opacity: 1;
+    visibility: visible;
+}
+
+.gameStartPanel.adventure .location-buttons-container {
+    display: none;
+}
+
+/* Individual location buttons */
+.goMountain, .goKingdom, .goRiver {
+    padding: 12px 24px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f4f9e5;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.goMountain:hover, .goKingdom:hover, .goRiver:hover {
+    background: rgba(0, 0, 0, 0.75);
+    transform: translateX(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+/* Lost state background - no question mark */
+.gameStartPanel.adventure.lost {
+    filter: sepia(0.3) brightness(0.9);
+}
+
+/* Make sure random1.png displays properly */
+.gameStartPanel.adventure[style*="random1.png"] {
+    filter: sepia(0.3) brightness(0.9);
+}
+/* Location buttons container */
+.location-buttons-container {
+    position: absolute;
+    right: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    z-index: 101;
+    pointer-events: auto;
+}
+
+/* Make sure buttons are visible when container is not hidden */
+.location-buttons-container:not(.hidden) {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Individual location buttons */
+.goMountain, .goKingdom, .goRiver {
+    padding: 12px 24px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f4f9e5;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.goMountain:hover, .goKingdom:hover, .goRiver:hover {
+    background: rgba(0, 0, 0, 0.75);
+    transform: translateX(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+/* Location buttons styling */
+.location-buttons-container {
+    position: absolute;
+    right: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    z-index: 101;
+    pointer-events: auto;
+}
+
+.location-buttons-container:not(.hidden) {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.location-btn {
+    padding: 12px 24px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f4f9e5;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.location-btn:hover {
+    background: rgba(0, 0, 0, 0.75);
+    transform: translateX(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.location-btn.demon-castle {
+    background: rgba(139, 0, 0, 0.7);
+    border-color: rgba(255, 100, 100, 0.5);
+}
+
+.location-btn.demon-castle:hover {
+    background: rgba(200, 0, 0, 0.8);
+    transform: translateX(-4px) scale(1.02);
+}
+
+/* Demon Castle background styling */
+.gameStartPanel.adventure[style*="Demon.png"] {
+    filter: brightness(0.85) sepia(0.2);
+}
+
+.gameStartPanel.adventure[style*="Demon.png"]::before {
+    content: "🏰";
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 48px;
+    opacity: 0.6;
+    pointer-events: none;
+    text-shadow: 0 0 10px rgba(255,0,0,0.5);
+}
+
+/* Lost state styling */
+.gameStartPanel.adventure.lost {
+    filter: sepia(0.3) brightness(0.9);
+}
+
+.gameStartPanel.adventure.lost .location-buttons-container {
+    filter: none;
+}
+/* Game Complete / Victory Screen Styles */
+.gameStartPanel.game-complete {
+    position: relative;
+    animation: victoryGlow 2s ease-in-out;
+}
+
+.gameStartPanel.game-complete::before {
+    content: "🏆";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 120px;
+    opacity: 0.3;
+    pointer-events: none;
+    animation: trophyPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes victoryGlow {
+    0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+    50% { box-shadow: 0 0 50px 20px rgba(255, 215, 0, 0.5); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+}
+
+@keyframes trophyPulse {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
+    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.6; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
+}
+
+/* Make attack buttons visibly disabled */
+.attack-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
 }

@@ -50,6 +50,8 @@ const statStamina = document.querySelector('.stat-stamina');
 const attackList = document.querySelector('.attack-list');
 const forest = document.querySelector('.goForest');
 const city = document.querySelector('.goCity');
+const villageActions = document.getElementById('villageActions');
+const locationButtonsContainer = document.getElementById('locationButtonsContainer');
 const bg = document.querySelector('.character-in-game');
 const anim = document.querySelector('.character-in-game2');
 const battleUI = document.querySelector('.battle-ui');
@@ -60,12 +62,62 @@ const villageTypewriter = document.querySelector('.village-typewriter');
 const villageTypewriterSecondary = document.querySelector('.village-typewriter-secondary');
 const villageTypewrap = document.querySelector('.village-typewrap');
 
+// Modals
+const victoryModal = document.getElementById('victoryModal');
+const gameOverModal = document.getElementById('gameOverModal');
+
+// Location Configuration
+const locationConfig = {
+    forest: {
+        buttons: [
+            { action: 'mushroom_kingdom', text: 'Go to Mushroom Kingdom' },
+            { action: 'river_village', text: 'Go to River Village' }
+        ]
+    },
+    city: {
+        buttons: [
+            { action: 'mountain', text: 'Go to the Mountain' },
+            { action: 'mushroom_kingdom', text: 'Go to Mushroom Kingdom' }
+        ]
+    },
+    mountain: {
+        hasDemonCastle: true,
+        buttons: []
+    },
+    mushroom_kingdom: {
+        hasDemonCastle: true,
+        buttons: []
+    },
+    river_village: {
+        hasDemonCastle: true,
+        buttons: []
+    },
+    demon_castle: {
+        buttons: []
+    },
+    lost: {
+        buttons: [
+            { action: 'mountain', text: 'Go to the Mountain' },
+            { action: 'river_village', text: 'Go to River Village' }
+        ]
+    }
+};
+
+// Game State Variables
 let currentCharacter = 'mage';
 let typewriterToken = null;
 let currentEnemy = null;
 let enemyHpFill = null;
 let enemyHpValue = null;
 let welcomeMessageShown = false;
+let isAnimating = false;
+let isWaitingForEnemyTurn = false;
+let pendingAttackCallback = null;
+let isReloading = false;
+let attackAnimationPromise = null;
+let gameOverTriggered = false;
+let isTraveling = false;
+let animationListenerAttached = false;
 
 const previewCharacterImages = {
     mage: 'magepng.png',
@@ -73,6 +125,7 @@ const previewCharacterImages = {
     traveler: 'traveler.png'
 };
 
+// Loading Overlay
 const loadingOverlay = document.createElement('div');
 loadingOverlay.className = 'loading-overlay';
 loadingOverlay.innerHTML = `<img src="loading.gif" alt="Loading...">`;
@@ -117,8 +170,11 @@ function clearTypewriter() {
     typewriterTimers = [];
 }
 
-function animateTypewriter(element, text, speed = 30, delay = 0) {
-    if (!element) return;
+function animateTypewriter(element, text, speed = 30, delay = 0, onComplete = null) {
+    if (!element) {
+        if (onComplete) onComplete();
+        return;
+    }
     element.textContent = '';
     element.classList.add('typing');
     const interval = Math.max(20, speed);
@@ -132,6 +188,9 @@ function animateTypewriter(element, text, speed = 30, delay = 0) {
                 window.clearInterval(ticker);
                 element.classList.remove('typing');
                 element.style.borderRight = 'none';
+                if (onComplete) {
+                    onComplete();
+                }
             }
         }, interval);
         typewriterTimers.push(ticker);
@@ -139,11 +198,14 @@ function animateTypewriter(element, text, speed = 30, delay = 0) {
     typewriterTimers.push(startTimer);
 }
 
-function setTypewriterMessage(primary, secondary = '') {
-    if (!villageTypewriter) return;
+function setTypewriterMessage(primary, secondary = '', onComplete = null) {
+    if (!villageTypewriter) {
+        if (onComplete) onComplete();
+        return;
+    }
     clearTypewriter();
     villageTypewriter.style.opacity = '1';
-    animateTypewriter(villageTypewriter, primary, 25, 0);
+    animateTypewriter(villageTypewriter, primary, 25, 0, onComplete);
     if (secondary && villageTypewriterSecondary) {
         const delay = Math.max(0.5, (primary.length * 25) / 1000) + 0.2;
         typewriterTimers.push(window.setTimeout(() => {
@@ -180,6 +242,7 @@ function clearAdventureState() {
     if (gameStartPanel) {
         gameStartPanel.classList.remove('adventure');
         gameStartPanel.classList.remove('city');
+        gameStartPanel.classList.remove('lost');
     }
     removeEnemy();
 }
@@ -195,7 +258,15 @@ function setBattleAttacks(key) {
         button.title = attack.description;
         button.dataset.attackIndex = index;
         button.addEventListener('click', () => {
-            performCombatAction('attack', index);
+            if (!isAnimating && !isWaitingForEnemyTurn && !isReloading && currentEnemy && currentEnemy.health > 0 && !gameOverTriggered) {
+                performCombatAction('attack', index);
+            } else if (isWaitingForEnemyTurn) {
+                setTypewriterMessage('Wait for the enemy to finish their turn!');
+            } else if (isReloading) {
+                setTypewriterMessage('Please wait, loading...');
+            } else if (!currentEnemy || currentEnemy.health <= 0) {
+                setTypewriterMessage('No enemy to fight!');
+            }
         });
         battleAttacks.appendChild(button);
     });
@@ -221,40 +292,93 @@ function setCharacterHP(key) {
 
 function setEnvironmentBackground(location) {
     if (!gameStartPanel) return;
-    const image = location === 'forest'
-        ? 'forest.png'
-        : location === 'city'
-            ? 'city.png'
-            : location;
+    
+    let image;
+    if (location === 'lost_forest' || location === 'lost_city') {
+        image = 'random1.png';
+        gameStartPanel.classList.add('lost');
+    } else if (location === 'mushroom_kingdom') {
+        image = 'kingdom.png';
+        gameStartPanel.classList.remove('lost');
+    } else if (location === 'river_village') {
+        image = 'river.png';
+        gameStartPanel.classList.remove('lost');
+    } else if (location === 'mountain') {
+        image = 'mountain.png';
+        gameStartPanel.classList.remove('lost');
+    } else if (location === 'village') {
+        image = 'village.png';
+        gameStartPanel.classList.remove('lost');
+    } else if (location === 'random1.png' || location === 'random1') {
+        image = 'random1.png';
+        gameStartPanel.classList.add('lost');
+    } else if (location === 'demon_castle') {
+        image = 'Demon.png';
+        gameStartPanel.classList.remove('lost');
+    } else {
+        image = location === 'forest' ? 'forest.png' : location === 'city' ? 'city.png' : location;
+        gameStartPanel.classList.remove('lost');
+    }
+    
     gameStartPanel.style.backgroundImage = `url('${image}')`;
     gameStartPanel.style.backgroundSize = 'cover';
     gameStartPanel.style.backgroundPosition = 'center';
 }
 
-function startAreaEntryAnimation() {
-    if (!bg || !anim) return;
-    setCharacterAction(currentCharacter, 'stand', 'stand');
-    requestAnimationFrame(() => {
-        setCharacterAction(currentCharacter, 'move', 'move');
-        const onAnimationEnd = event => {
-            if (event.target !== bg || event.animationName !== 'slideToRight') return;
-            bg.removeEventListener('animationend', onAnimationEnd);
-            window.clearTimeout(fallbackTimer);
-            setCharacterAction(currentCharacter, 'stand', 'stand');
-        };
-        const fallbackTimer = window.setTimeout(() => {
-            bg.removeEventListener('animationend', onAnimationEnd);
-            setCharacterAction(currentCharacter, 'stand', 'stand');
-        }, 2400);
-        bg.addEventListener('animationend', onAnimationEnd);
-    });
+function getBackgroundImageForLocation(location) {
+    const images = {
+        'forest': 'forest.png',
+        'city': 'city.png',
+        'mountain': 'mountain.png',
+        'mushroom_kingdom': 'kingdom.png',
+        'river_village': 'river.png',
+        'village': 'village.png',
+        'demon_castle': 'Demon.png'
+    };
+    return images[location] || location + '.png';
 }
 
-if (bg) {
-    bg.addEventListener('transitionend', event => {
-        if (event.target !== bg || event.propertyName !== 'transform') return;
-        setCharacterAction(currentCharacter, 'stand', 'stand');
-    });
+function updateLocationButtons(location, isLost = false) {
+    if (!locationButtonsContainer) return;
+    
+    locationButtonsContainer.innerHTML = '';
+    
+    let config = null;
+    
+    if (isLost) {
+        config = locationConfig.lost;
+    } else {
+        config = locationConfig[location];
+    }
+    
+    if (!config) {
+        if (villageActions) villageActions.classList.remove('hidden');
+        if (locationButtonsContainer) locationButtonsContainer.classList.add('hidden');
+        return;
+    }
+    
+    if (config.buttons) {
+        config.buttons.forEach(btn => {
+            const button = document.createElement('button');
+            button.className = `location-btn ${btn.action}`;
+            button.textContent = btn.text;
+            button.dataset.action = btn.action;
+            button.addEventListener('click', () => startLocationFlow(btn.action));
+            locationButtonsContainer.appendChild(button);
+        });
+    }
+    
+    if (config.hasDemonCastle && !isLost && location !== 'demon_castle') {
+        const demonButton = document.createElement('button');
+        demonButton.className = 'location-btn demon-castle';
+        demonButton.textContent = 'Go to Demon Castle';
+        demonButton.dataset.action = 'demon_castle';
+        demonButton.addEventListener('click', () => startLocationFlow('demon_castle'));
+        locationButtonsContainer.appendChild(demonButton);
+    }
+    
+    if (villageActions) villageActions.classList.add('hidden');
+    locationButtonsContainer.classList.remove('hidden');
 }
 
 function displayEnemy(enemyData) {
@@ -276,6 +400,8 @@ function displayEnemy(enemyData) {
         }
         if (enemyImg) {
             enemyImg.src = enemyData.idleAnimation;
+            enemyImg.style.animation = 'moveSheet 1s steps(7) infinite';
+            enemyImg.classList.remove('hit', 'dying', 'stunned-effect', 'hit-effect');
         }
         
         enemyHpFill = hpFillElem;
@@ -284,6 +410,7 @@ function displayEnemy(enemyData) {
     
     currentEnemy = enemyData;
     enemyContainer.classList.remove('hidden');
+    updateStatusIndicators(currentEnemy);
 }
 
 function updateStatusIndicators(data) {
@@ -294,97 +421,87 @@ function updateStatusIndicators(data) {
             statusDiv = document.createElement('div');
             statusDiv.className = 'enemy-status-effects';
             enemyCard.appendChild(statusDiv);
+        } else {
+            return;
         }
     }
     
     if (statusDiv) {
         statusDiv.innerHTML = '';
+        
         if (data.bleed_active && data.bleed_turns > 0) {
             const bleedIcon = document.createElement('span');
             bleedIcon.className = 'status-effect bleed';
-            bleedIcon.textContent = `🩸 Bleed (${data.bleed_turns})`;
+            bleedIcon.textContent = `Bleed ${data.bleed_turns}`;
             statusDiv.appendChild(bleedIcon);
         }
+        
         if (data.burn_active && data.burn_turns > 0) {
             const burnIcon = document.createElement('span');
             burnIcon.className = 'status-effect burn';
-            burnIcon.textContent = `🔥 Burn (${data.burn_turns})`;
+            burnIcon.textContent = `Burn ${data.burn_turns}`;
             statusDiv.appendChild(burnIcon);
+        }
+        
+        if (data.stun_active && data.stun_turns > 0) {
+            const stunIcon = document.createElement('span');
+            stunIcon.className = 'status-effect stun';
+            stunIcon.textContent = `Stun ${data.stun_turns}`;
+            statusDiv.appendChild(stunIcon);
         }
     }
 }
 
-function performCombatAction(action, attackIndex = 0) {
-    if (!currentEnemy) return;
-    
-    showLoading();
-    
-    const payload = new URLSearchParams({
-        action: 'combat_action',
-        combat_action: action,
-        attack_index: attackIndex
-    });
-    
-    fetch('handler.php', {
-        method: 'POST',
-        body: payload
-    }).then(response => response.json()).then(data => {
-        hideLoading();
+function playEnemyHitAnimation() {
+    const enemyImg = document.querySelector('.enemy-sprite');
+    if (enemyImg && currentEnemy && currentEnemy.health > 0) {
+        const originalSrc = currentEnemy.idleAnimation;
+        enemyImg.src = 'Mushroom/Mushroom-Hit.png';
+        enemyImg.classList.remove('dying', 'stunned-effect');
+        enemyImg.classList.add('hit-effect');
         
-        if (data.success) {
-            setTypewriterMessage(data.message);
-            
-            updateStatusIndicators(data);
-            
-            if (data.enemy_hp !== undefined && enemyHpFill && enemyHpValue) {
-                const percent = (data.enemy_hp / data.enemy_max_hp) * 100;
-                enemyHpFill.style.width = `${percent}%`;
-                enemyHpValue.textContent = `${data.enemy_hp} / ${data.enemy_max_hp} HP`;
-                
-                if (data.enemy_defeated) {
-                    removeEnemy();
-                    if (data.reward) {
-                        currentUserState.coins = (currentUserState.coins || 0) + data.reward;
-                        updateCoinsDisplay();
-                        saveGameState();
-                    }
-                    if (data.xp_reward) {
-                        currentUserState.xp = (currentUserState.xp || 0) + data.xp_reward;
-                        if (data.leveled_up) {
-                            currentUserState.level = data.new_level;
-                            currentUserState.xp_needed = data.xp_needed;
-                        }
-                        updateXPBar();
-                        saveGameState();
-                    }
-                }
+        setTimeout(() => {
+            if (enemyImg && currentEnemy && !currentEnemy.stunned && currentEnemy.health > 0) {
+                enemyImg.src = originalSrc;
+                enemyImg.classList.remove('hit-effect');
+                enemyImg.style.animation = 'moveSheet 1s steps(7) infinite';
             }
-            
-            if (data.player_hp !== undefined) {
-                const characterData = characters[currentCharacter];
-                if (characterData) {
-                    const maxHp = characterData.health;
-                    const percent = (data.player_hp / maxHp) * 100;
-                    if (hpFill) hpFill.style.width = `${percent}%`;
-                    if (hpValue) hpValue.textContent = `${data.player_hp} / ${maxHp} HP`;
-                    currentUserState.temp_hp = data.player_hp;
-                    saveGameState();
-                }
+        }, 400);
+    }
+}
+
+function playEnemyStunAnimation() {
+    const enemyImg = document.querySelector('.enemy-sprite');
+    if (enemyImg && currentEnemy && currentEnemy.health > 0) {
+        const originalSrc = currentEnemy.idleAnimation;
+        enemyImg.src = 'Mushroom/Mushroom-Stun.png';
+        enemyImg.classList.remove('hit-effect', 'dying');
+        enemyImg.classList.add('stunned-effect');
+        
+        setTimeout(() => {
+            if (enemyImg && currentEnemy && currentEnemy.health > 0) {
+                enemyImg.src = originalSrc;
+                enemyImg.classList.remove('stunned-effect');
+                enemyImg.style.animation = 'moveSheet 1s steps(7) infinite';
             }
-            
-            if (data.player_defeated) {
-                setTypewriterMessage("You have been defeated! Game Over.");
-                removeEnemy();
-                currentUserState.temp_hp = null;
-                saveGameState();
-            }
-        } else {
-            setTypewriterMessage(data.message || 'Combat action failed.');
-        }
-    }).catch(() => {
-        hideLoading();
-        setTypewriterMessage('Something went wrong during combat.');
-    });
+        }, 800);
+    }
+}
+
+function fadeOutEnemy(callback) {
+    const enemyContainer = document.querySelector('.enemy-container');
+    if (enemyContainer) {
+        enemyContainer.style.transition = 'opacity 0.5s ease';
+        enemyContainer.style.opacity = '0';
+        setTimeout(() => {
+            enemyContainer.classList.add('hidden');
+            enemyContainer.style.opacity = '1';
+            enemyContainer.style.transition = '';
+            if (callback) callback();
+        }, 500);
+    } else {
+        if (callback) callback();
+    }
 }
 
 function removeEnemy() {
@@ -402,51 +519,605 @@ function removeEnemy() {
     if (statusDiv) {
         statusDiv.remove();
     }
+    isWaitingForEnemyTurn = false;
+    
+    fetch('handler.php', {
+        method: 'POST',
+        body: new URLSearchParams({ action: 'clear_enemy' })
+    }).catch(() => {});
+}
+
+function showVictoryModal() {
+    if (victoryModal) {
+        victoryModal.classList.remove('hidden');
+        victoryModal.classList.add('show');
+    }
+}
+
+function showGameOverModal() {
+    if (gameOverModal) {
+        gameOverModal.classList.remove('hidden');
+        gameOverModal.classList.add('show');
+    }
+    gameOverTriggered = true;
+}
+
+function hideAllModals() {
+    if (victoryModal) {
+        victoryModal.classList.add('hidden');
+        victoryModal.classList.remove('show');
+    }
+    if (gameOverModal) {
+        gameOverModal.classList.add('hidden');
+        gameOverModal.classList.remove('show');
+    }
+}
+
+function restartGameKeepProgress() {
+    let maxHp = 100;
+    if (currentUserState.selectedCharacter) {
+        const charData = characters[currentUserState.selectedCharacter];
+        if (charData) {
+            maxHp = charData.health;
+        }
+    } else if (currentCharacter) {
+        const charData = characters[currentCharacter];
+        if (charData) {
+            maxHp = charData.health;
+        }
+    }
+    
+    currentUserState.game_started = true;
+    currentUserState.current_location = 'village';
+    currentUserState.temp_hp = maxHp;
+    currentEnemy = null;
+    gameOverTriggered = false;
+    isTraveling = false;
+    isAnimating = false;
+    isWaitingForEnemyTurn = false;
+    
+    fetch('handler.php', {
+        method: 'POST',
+        body: new URLSearchParams({
+            action: 'save_game_state',
+            selected_character: currentUserState.selectedCharacter || '',
+            coins: currentUserState.coins,
+            level: currentUserState.level,
+            xp: currentUserState.xp,
+            xp_needed: currentUserState.xp_needed,
+            character_selected: currentUserState.character_selected ? 'true' : 'false',
+            game_started: 'true',
+            current_location: 'village',
+            temp_hp: maxHp
+        })
+    }).then(() => {
+        window.location.reload();
+    }).catch(() => {
+        window.location.reload();
+    });
+}
+
+// Attack Animations
+function playMageAttackAnimation(attackType, callback) {
+    if (!bg || !anim || isAnimating) {
+        if (callback) callback();
+        return;
+    }
+    
+    isAnimating = true;
+    
+    bg.classList.remove('stand', 'move', 'return');
+    bg.classList.add('move2');
+    anim.classList.remove('stand', 'move', 'return');
+    anim.classList.add('move2');
+    
+    setTimeout(() => {
+        bg.classList.remove('move2');
+        anim.classList.remove('move2');
+        
+        bg.classList.add('attack');
+        anim.classList.add('attack');
+        
+        playEnemyHitAnimation();
+        
+        setTimeout(() => {
+            bg.classList.remove('attack');
+            anim.classList.remove('attack');
+            bg.classList.add('return');
+            anim.classList.add('return');
+            
+            setTimeout(() => {
+                bg.classList.remove('return');
+                anim.classList.remove('return');
+                bg.classList.add('stand');
+                anim.classList.add('stand');
+                isAnimating = false;
+                if (callback) callback();
+            }, 800);
+        }, 500);
+    }, 800);
+}
+
+function playKnightAttackAnimation(attackType, callback) {
+    if (!bg || !anim || isAnimating) {
+        if (callback) callback();
+        return;
+    }
+    
+    isAnimating = true;
+    
+    bg.classList.remove('stand', 'move', 'return');
+    bg.classList.add('move2');
+    anim.classList.remove('stand', 'move', 'return');
+    anim.classList.add('move2');
+    
+    setTimeout(() => {
+        bg.classList.remove('move2');
+        anim.classList.remove('move2');
+        
+        if (attackType === 'sword') {
+            bg.classList.add('attack');
+            anim.classList.add('attack');
+        } else {
+            bg.classList.add('attack2');
+            anim.classList.add('attack2');
+        }
+        
+        playEnemyHitAnimation();
+        
+        setTimeout(() => {
+            bg.classList.remove('attack', 'attack2');
+            anim.classList.remove('attack', 'attack2');
+            bg.classList.add('return');
+            anim.classList.add('return');
+            
+            setTimeout(() => {
+                bg.classList.remove('return');
+                anim.classList.remove('return');
+                bg.classList.add('stand');
+                anim.classList.add('stand');
+                isAnimating = false;
+                if (callback) callback();
+            }, 800);
+        }, 500);
+    }, 800);
+}
+
+function playTravelerAttackAnimation(attackType, callback) {
+    if (!bg || !anim || isAnimating) {
+        if (callback) callback();
+        return;
+    }
+    
+    isAnimating = true;
+    
+    bg.classList.remove('stand', 'move', 'return');
+    bg.classList.add('move2');
+    anim.classList.remove('stand', 'move', 'return');
+    anim.classList.add('move2');
+    
+    setTimeout(() => {
+        bg.classList.remove('move2');
+        anim.classList.remove('move2');
+        
+        if (attackType === 'torch') {
+            bg.classList.add('attack');
+            anim.classList.add('attack');
+        } else {
+            bg.classList.add('attack2');
+            anim.classList.add('attack2');
+        }
+        
+        playEnemyHitAnimation();
+        
+        setTimeout(() => {
+            bg.classList.remove('attack', 'attack2');
+            anim.classList.remove('attack', 'attack2');
+            bg.classList.add('return');
+            anim.classList.add('return');
+            
+            setTimeout(() => {
+                bg.classList.remove('return');
+                anim.classList.remove('return');
+                bg.classList.add('stand');
+                anim.classList.add('stand');
+                isAnimating = false;
+                if (callback) callback();
+            }, 800);
+        }, 500);
+    }, 800);
+}
+
+function playGenericAttackAnimation(callback) {
+    if (!bg || !anim || isAnimating) {
+        if (callback) callback();
+        return;
+    }
+    
+    isAnimating = true;
+    
+    bg.classList.remove('stand', 'move', 'return');
+    bg.classList.add('move2');
+    anim.classList.remove('stand', 'move', 'return');
+    anim.classList.add('move2');
+    
+    setTimeout(() => {
+        bg.classList.remove('move2');
+        anim.classList.remove('move2');
+        
+        bg.classList.add('attack');
+        anim.classList.add('attack');
+        
+        playEnemyHitAnimation();
+        
+        setTimeout(() => {
+            bg.classList.remove('attack');
+            anim.classList.remove('attack');
+            bg.classList.add('return');
+            anim.classList.add('return');
+            
+            setTimeout(() => {
+                bg.classList.remove('return');
+                anim.classList.remove('return');
+                bg.classList.add('stand');
+                anim.classList.add('stand');
+                isAnimating = false;
+                if (callback) callback();
+            }, 800);
+        }, 500);
+    }, 800);
+}
+
+function sendCombatRequest(action, attackIndex) {
+    showLoading();
+    
+    const payload = new URLSearchParams({
+        action: 'combat_action',
+        combat_action: action,
+        attack_index: attackIndex
+    });
+    
+    fetch('handler.php', {
+        method: 'POST',
+        body: payload
+    }).then(response => response.json()).then(data => {
+        hideLoading();
+        
+        if (data.success) {
+            let fullMessage = data.message;
+            
+            if (data.critical_hit && !fullMessage.includes('CRITICAL HIT')) {
+                fullMessage = 'CRITICAL HIT! ' + fullMessage;
+            }
+            
+            if (data.enemy_hp !== undefined && enemyHpFill && enemyHpValue) {
+                const percent = (data.enemy_hp / data.enemy_max_hp) * 100;
+                enemyHpFill.style.width = `${percent}%`;
+                enemyHpValue.textContent = `${data.enemy_hp} / ${data.enemy_max_hp} HP`;
+                
+                if (currentEnemy) {
+                    currentEnemy.health = data.enemy_hp;
+                    currentEnemy.bleed_active = data.bleed_active;
+                    currentEnemy.bleed_turns = data.bleed_turns;
+                    currentEnemy.burn_active = data.burn_active;
+                    currentEnemy.burn_turns = data.burn_turns;
+                    if (data.stun_active !== undefined) {
+                        currentEnemy.stunned = data.stun_active;
+                        currentEnemy.stun_turns = data.stun_turns;
+                    }
+                }
+            }
+            
+            if (data.player_hp !== undefined) {
+                currentUserState.temp_hp = data.player_hp;
+                setCharacterHP(currentCharacter);
+            }
+            
+            updateStatusIndicators(data);
+            updateXPBar();
+            updateCoinsDisplay();
+            saveGameState();
+            
+            const isDemonCastle = currentUserState.current_location === 'demon_castle';
+            
+            // Check for player defeat FIRST
+            if (data.player_defeated && data.player_hp <= 0) {
+                fadeOutEnemy(() => {
+                    removeEnemy();
+                    if (battleUI) battleUI.classList.add('hidden');
+                    showGameOverModal();
+                });
+                return;
+            }
+            
+            // Check for enemy defeat
+            if (data.enemy_defeated) {
+                if (isDemonCastle) {
+                    fadeOutEnemy(() => {
+                        removeEnemy();
+                        if (battleUI) battleUI.classList.add('hidden');
+                        if (gameStartPanel) {
+                            gameStartPanel.classList.remove('adventure');
+                            gameStartPanel.classList.add('selected');
+                        }
+                        showVictoryModal();
+                    });
+                    return;
+                }
+                
+                fadeOutEnemy(() => {
+                    setTypewriterMessage(fullMessage, '', () => {
+                        removeEnemy();
+                        if (battleUI) battleUI.classList.add('hidden');
+                        currentUserState.temp_hp = data.player_hp;
+                        updateXPBar();
+                        updateCoinsDisplay();
+                        saveGameState();
+                        isWaitingForEnemyTurn = false;
+                        isAnimating = false;
+                        
+                        if (gameStartPanel) {
+                            gameStartPanel.classList.remove('adventure');
+                            gameStartPanel.classList.add('selected');
+                            
+                            if (currentUserState.current_location !== 'village') {
+                                if (villageActions) villageActions.classList.add('hidden');
+                                const isLost = gameStartPanel.classList.contains('lost');
+                                updateLocationButtons(currentUserState.current_location, isLost);
+                            } else {
+                                if (villageActions) villageActions.classList.remove('hidden');
+                                if (locationButtonsContainer) locationButtonsContainer.classList.add('hidden');
+                            }
+                        }
+                        
+                        setTimeout(() => {
+                            if (!isReloading) {
+                                isReloading = true;
+                                location.reload();
+                            }
+                        }, 2000);
+                    });
+                });
+                return;
+            }
+            
+            // Normal combat - display message and re-enable buttons
+            setTypewriterMessage(fullMessage, '', () => {
+                setTimeout(() => {
+                    isWaitingForEnemyTurn = false;
+                    setCharacterHP(currentCharacter);
+                    const attackButtons = document.querySelectorAll('.attack-button');
+                    attackButtons.forEach(btn => {
+                        btn.disabled = false;
+                    });
+                }, 500);
+            });
+            
+            setTimeout(() => {
+                if (currentEnemy && currentEnemy.health > 0) {
+                    setCharacterHP(currentCharacter);
+                }
+                if (currentEnemy && currentEnemy.health > 0 && enemyHpFill && enemyHpValue) {
+                    const percent = (currentEnemy.health / currentEnemy.maxHealth) * 100;
+                    enemyHpFill.style.width = `${percent}%`;
+                    enemyHpValue.textContent = `${currentEnemy.health} / ${currentEnemy.maxHealth} HP`;
+                }
+            }, 500);
+        } else {
+            setTypewriterMessage(data.message || 'Combat action failed.', '', () => {
+                isWaitingForEnemyTurn = false;
+                const attackButtons = document.querySelectorAll('.attack-button');
+                attackButtons.forEach(btn => {
+                    btn.disabled = false;
+                });
+            });
+        }
+    }).catch(() => {
+        hideLoading();
+        setTypewriterMessage('Something went wrong during combat.', '', () => {
+            isWaitingForEnemyTurn = false;
+            const attackButtons = document.querySelectorAll('.attack-button');
+            attackButtons.forEach(btn => {
+                btn.disabled = false;
+            });
+        });
+    });
+}
+
+function performCombatAction(action, attackIndex = 0) {
+    if (!currentEnemy) {
+        setTypewriterMessage('No enemy to fight!');
+        return;
+    }
+    if (currentEnemy.health <= 0) {
+        setTypewriterMessage('Enemy already defeated!');
+        return;
+    }
+    if (isAnimating) {
+        setTypewriterMessage('Wait for the attack animation to finish!');
+        return;
+    }
+    if (isWaitingForEnemyTurn) {
+        setTypewriterMessage('Wait for the enemy to finish their turn!');
+        return;
+    }
+    if (isReloading) {
+        setTypewriterMessage('Please wait, loading...');
+        return;
+    }
+    if (gameOverTriggered) {
+        setTypewriterMessage('Game over! Please restart to play again.');
+        return;
+    }
+    
+    const attackButtons = document.querySelectorAll('.attack-button');
+    attackButtons.forEach(btn => {
+        btn.disabled = true;
+    });
+    
+    const characterData = characters[currentCharacter];
+    const attacks = characterData ? characterData.attacks : [];
+    const selectedAttack = attacks[attackIndex] || attacks[0];
+    const attackName = selectedAttack ? selectedAttack.name : '';
+    
+    let attackType = 'normal';
+    if (currentCharacter === 'mage') {
+        attackType = attackName === 'Fireball' ? 'fireball' : 'physical';
+    } else if (currentCharacter === 'knight') {
+        attackType = attackName === 'Sword Swing' ? 'sword' : 'kick';
+    } else if (currentCharacter === 'traveler') {
+        attackType = attackName === 'Torch Jab' ? 'torch' : 'map';
+    }
+    
+    attackAnimationPromise = new Promise((resolve) => {
+        if (currentCharacter === 'mage') {
+            playMageAttackAnimation(attackType, resolve);
+        } else if (currentCharacter === 'knight') {
+            playKnightAttackAnimation(attackType, resolve);
+        } else if (currentCharacter === 'traveler') {
+            playTravelerAttackAnimation(attackType, resolve);
+        } else {
+            playGenericAttackAnimation(resolve);
+        }
+    });
+    
+    attackAnimationPromise.then(() => {
+        sendCombatRequest(action, attackIndex);
+    });
 }
 
 function handleLocationResult(data, location) {
     if (!data.success) {
-        setTypewriterMessage('Unable to continue the journey.');
+        if (data.outcome === 'combat_active') {
+            setTypewriterMessage(data.message, '', () => {
+                setTimeout(() => {
+                    isTraveling = false;
+                }, 2000);
+            });
+        } else {
+            setTypewriterMessage('Unable to continue the journey.', '', () => {
+                setTimeout(() => {
+                    isTraveling = false;
+                }, 2000);
+            });
+        }
         hideLoading();
+        isTraveling = false;
         return;
     }
 
-    setEnvironmentBackground(data.background || location);
+    if (data.outcome === 'village') {
+        setEnvironmentBackground('village.png');
+        gameStartPanel.classList.remove('adventure');
+        gameStartPanel.classList.remove('city');
+        gameStartPanel.classList.remove('lost');
+        gameStartPanel.classList.add('selected');
+        
+        if (villageActions) villageActions.classList.remove('hidden');
+        if (locationButtonsContainer) locationButtonsContainer.classList.add('hidden');
+        if (battleUI) battleUI.classList.add('hidden');
+        
+        setTypewriterMessage(data.message, '', () => {
+            removeEnemy();
+            hideLoading();
+            currentUserState.current_location = 'village';
+            saveGameState();
+            isTraveling = false;
+        });
+        
+        setCharacterAction(currentCharacter, 'stand', 'stand');
+        return;
+    }
+
+    if (data.outcome === 'heal') {
+        setEnvironmentBackground(data.background);
+        gameStartPanel.classList.add('adventure');
+        gameStartPanel.classList.remove('lost');
+        
+        if (location === 'city' || location === 'mushroom_kingdom' || location === 'mountain' || location === 'demon_castle') {
+            gameStartPanel.classList.add('city');
+        } else {
+            gameStartPanel.classList.remove('city');
+        }
+        
+        if (villageActions) villageActions.classList.add('hidden');
+        
+        updateLocationButtons(location, false);
+        
+        if (data.current_hp !== undefined) {
+            currentUserState.temp_hp = data.current_hp;
+            setCharacterHP(currentCharacter);
+        }
+        
+        setTypewriterMessage(data.message, '', () => {
+            hideLoading();
+            currentUserState.current_location = location;
+            saveGameState();
+            isTraveling = false;
+        });
+        
+        setCharacterAction(currentCharacter, 'stand', 'stand');
+        return;
+    }
+
+    let bgImage = data.background;
+    setEnvironmentBackground(bgImage);
     gameStartPanel.classList.add('adventure');
-    if (location === 'city') {
+    
+    const isLost = (data.outcome === 'lost');
+    if (isLost) {
+        gameStartPanel.classList.add('lost');
+        currentUserState.current_location = location + '_lost';
+    } else {
+        gameStartPanel.classList.remove('lost');
+    }
+    
+    if (location === 'city' || location === 'mushroom_kingdom' || location === 'mountain' || location === 'demon_castle') {
         gameStartPanel.classList.add('city');
     } else {
         gameStartPanel.classList.remove('city');
     }
-    setTypewriterMessage(data.message);
-
-    if (battleUI) {
-        battleUI.classList.remove('hidden');
-    }
-    setBattleAttacks(currentCharacter);
-    setCharacterHP(currentCharacter);
     
-    if (data.enemy) {
-        displayEnemy(data.enemy);
-    } else {
-        removeEnemy();
+    if (villageActions) villageActions.classList.add('hidden');
+    
+    updateLocationButtons(location, isLost);
+    
+    let message = data.message;
+    if (data.healed) {
+        message = message;
+        if (data.current_hp !== undefined) {
+            currentUserState.temp_hp = data.current_hp;
+            setCharacterHP(currentCharacter);
+        }
     }
     
-    if (data.outcome === 'lost') {
-        setCharacterAction(currentCharacter, 'stand', 'stand');
-        hideLoading();
-        return;
-    }
+    setTypewriterMessage(message, '', () => {
+        if (data.outcome === 'encounter') {
+            if (locationButtonsContainer) locationButtonsContainer.classList.add('hidden');
+            if (battleUI) {
+                battleUI.classList.remove('hidden');
+            }
+            setBattleAttacks(currentCharacter);
+            setCharacterHP(currentCharacter);
+            displayEnemy(data.enemy);
+            isWaitingForEnemyTurn = false;
+            hideLoading();
+            currentUserState.current_location = location;
+            saveGameState();
+        } else {
+            if (locationButtonsContainer) {
+                locationButtonsContainer.classList.remove('hidden');
+            }
+            if (battleUI) battleUI.classList.add('hidden');
+            removeEnemy();
+            hideLoading();
+            currentUserState.current_location = location;
+            saveGameState();
+        }
+        isTraveling = false;
+    });
 
     setCharacterAction(currentCharacter, 'stand', 'stand');
-    hideLoading();
-    
-    // Update the current location in state
-    currentUserState.current_location = location;
-    console.log('Location updated to:', location);
-    
-    // Save immediately to ensure it persists
-    saveGameState();
 }
 
 function fetchLocationOutcome(location) {
@@ -461,13 +1132,28 @@ function fetchLocationOutcome(location) {
     }).then(response => response.json()).then(data => {
         handleLocationResult(data, location);
     }).catch(() => {
-        setTypewriterMessage('Something went wrong while exploring.');
+        setTypewriterMessage('Something went wrong while exploring.', '', () => {
+            setTimeout(() => {
+                isTraveling = false;
+            }, 2000);
+        });
         hideLoading();
+        isTraveling = false;
     });
 }
 
 function startLocationFlow(location) {
+    if (isTraveling) {
+        return;
+    }
+    
     if (!currentCharacter || !bg || !anim) return;
+    if (gameOverTriggered) {
+        setTypewriterMessage('Game over! Please restart to play again.');
+        return;
+    }
+    
+    isTraveling = true;
     clearAdventureState();
     hideLoading();
 
@@ -482,16 +1168,16 @@ function startLocationFlow(location) {
         const onAnimationEnd = event => {
             if (event.target !== bg || event.animationName !== 'slideToRight') return;
             bg.removeEventListener('animationend', onAnimationEnd);
+            animationListenerAttached = false;
             showLoading();
-            const loadingImg = loadingOverlay.querySelector('img');
-            if (loadingImg) {
-                loadingImg.addEventListener('animationend', () => fetchLocationOutcome(location), { once: true });
-            } else {
-                fetchLocationOutcome(location);
-            }
+            fetchLocationOutcome(location);
         };
 
+        if (animationListenerAttached) {
+            bg.removeEventListener('animationend', onAnimationEnd);
+        }
         bg.addEventListener('animationend', onAnimationEnd);
+        animationListenerAttached = true;
     });
 }
 
@@ -508,13 +1194,25 @@ function setCharacterAction(key, bgAction = 'stand', animAction = 'stand') {
     const safeAnimAction = animAction ? animAction.toLowerCase() : '';
 
     if (bg) {
-        bg.className = ['character-in-game', 'pixelart', safeKey, safeBgAction].filter(Boolean).join(' ');
+        bg.className = '';
+        bg.classList.add('character-in-game', 'pixelart', safeKey);
+        if (safeBgAction !== 'stand') {
+            bg.classList.add(safeBgAction);
+        } else {
+            bg.classList.add('stand');
+        }
     }
     if (anim) {
         if (previewCharacterImages[safeKey]) {
             anim.src = previewCharacterImages[safeKey];
         }
-        anim.className = ['character-in-game2', 'pixelart', safeKey, safeAnimAction].filter(Boolean).join(' ');
+        anim.className = '';
+        anim.classList.add('character-in-game2', 'pixelart', safeKey);
+        if (safeAnimAction !== 'stand') {
+            anim.classList.add(safeAnimAction);
+        } else {
+            anim.classList.add('stand');
+        }
         if (safeAnimAction === 'stand' && safeKey === 'knight') {
             anim.style.animation = 'none';
         } else {
@@ -524,6 +1222,9 @@ function setCharacterAction(key, bgAction = 'stand', animAction = 'stand') {
 }
 
 function setInGameCharacter(key, action = 'stand') {
+    if (key === 'traveler' && isAnimating) {
+        return;
+    }
     setCharacterAction(key, action, action);
 }
 
@@ -543,14 +1244,25 @@ function updateStartButtonVisual() {
 function saveGameState() {
     if (!window.fetch) return Promise.resolve({ success: false });
     
-    // Make sure current_location is up to date from the game panel
     if (gameStartPanel.classList.contains('adventure')) {
         if (!currentUserState.current_location || currentUserState.current_location === 'village') {
             const bgImage = gameStartPanel.style.backgroundImage;
-            if (bgImage.includes('forest')) {
+            if (bgImage.includes('forest') && !bgImage.includes('random1')) {
                 currentUserState.current_location = 'forest';
-            } else if (bgImage.includes('city')) {
+            } else if (bgImage.includes('city') && !bgImage.includes('random1')) {
                 currentUserState.current_location = 'city';
+            } else if (bgImage.includes('mountain')) {
+                currentUserState.current_location = 'mountain';
+            } else if (bgImage.includes('kingdom')) {
+                currentUserState.current_location = 'mushroom_kingdom';
+            } else if (bgImage.includes('river')) {
+                currentUserState.current_location = 'river_village';
+            } else if (bgImage.includes('Demon')) {
+                currentUserState.current_location = 'demon_castle';
+            } else if (bgImage.includes('random1')) {
+                if (!currentUserState.current_location || currentUserState.current_location === 'village') {
+                    currentUserState.current_location = 'lost_forest';
+                }
             }
         }
     }
@@ -567,8 +1279,6 @@ function saveGameState() {
         current_location: currentUserState.current_location || 'village',
         temp_hp: currentUserState.temp_hp !== undefined && currentUserState.temp_hp !== null ? currentUserState.temp_hp : ''
     });
-
-    console.log('Saving game state - Location:', currentUserState.current_location);
 
     return fetch('handler.php', {
         method: 'POST',
@@ -589,7 +1299,7 @@ function saveGameState() {
 function restoreEnemyFromSession() {
     fetchJson({ action: 'fetch_user' })
         .then(data => {
-            if (data.success && data.current_enemy) {
+            if (data.success && data.current_enemy && data.current_enemy.health > 0) {
                 const enemyData = data.current_enemy;
                 currentEnemy = enemyData;
                 
@@ -608,13 +1318,36 @@ function restoreEnemyFromSession() {
                     }
                     if (enemyImg) {
                         enemyImg.src = enemyData.idleAnimation;
+                        enemyImg.style.animation = 'moveSheet 1s steps(7) infinite';
+                        enemyImg.classList.remove('hit', 'dying', 'stunned-effect', 'hit-effect');
                     }
                     
+                    updateStatusIndicators(enemyData);
                     enemyContainer.classList.remove('hidden');
-                    console.log('Enemy restored from session:', enemyData.name, 'HP:', enemyData.health);
+                    
+                    if (battleUI) battleUI.classList.remove('hidden');
+                    if (locationButtonsContainer) locationButtonsContainer.classList.add('hidden');
+                    if (villageActions) villageActions.classList.add('hidden');
+                    isWaitingForEnemyTurn = false;
+                    
+                    const attackButtons = document.querySelectorAll('.attack-button');
+                    attackButtons.forEach(btn => {
+                        btn.disabled = false;
+                    });
                 }
             } else {
-                console.log('No enemy in session to restore');
+                currentEnemy = null;
+                const enemyContainer = document.querySelector('.enemy-container');
+                if (enemyContainer) enemyContainer.classList.add('hidden');
+                if (battleUI) battleUI.classList.add('hidden');
+                if (currentUserState.current_location !== 'village' && gameStartPanel.classList.contains('adventure')) {
+                    const isLost = gameStartPanel.classList.contains('lost');
+                    let location = currentUserState.current_location;
+                    if (location.endsWith('_lost')) {
+                        location = location.replace('_lost', '');
+                    }
+                    updateLocationButtons(location, isLost);
+                }
             }
         })
         .catch(() => {});
@@ -633,6 +1366,29 @@ function activateGameSession() {
     updateCoinsDisplay();
     updateXPBar();
     
+    const hasActiveEnemy = (currentEnemy !== null && currentEnemy.health > 0);
+    
+    if (hasActiveEnemy) {
+        if (villageActions) villageActions.classList.add('hidden');
+        if (locationButtonsContainer) locationButtonsContainer.classList.add('hidden');
+        if (battleUI) battleUI.classList.remove('hidden');
+    } 
+    else if (currentUserState.current_location === 'village') {
+        villageActions.classList.remove('hidden');
+        locationButtonsContainer.classList.add('hidden');
+        if (battleUI) battleUI.classList.add('hidden');
+    } 
+    else {
+        villageActions.classList.add('hidden');
+        const isLost = gameStartPanel.classList.contains('lost');
+        let location = currentUserState.current_location;
+        if (location.endsWith('_lost')) {
+            location = location.replace('_lost', '');
+        }
+        updateLocationButtons(location, isLost);
+        if (battleUI) battleUI.classList.add('hidden');
+    }
+    
     if (startCharacterSpriteImg) {
         const selectedKey = currentUserState.character_selected && currentUserState.selectedCharacter ? currentUserState.selectedCharacter : null;
         const c = selectedKey ? characters[selectedKey] : null;
@@ -648,25 +1404,38 @@ function activateGameSession() {
     
     setCharacterHP(currentCharacter);
     
-    // Check if we have a saved location that is not village
-    console.log('Saved location:', currentUserState.current_location);
-    
     if (currentUserState.current_location && currentUserState.current_location !== 'village') {
-        // Restore the background first
-        setEnvironmentBackground(currentUserState.current_location);
+        let bgImage;
+        let isLostFromState = currentUserState.current_location.endsWith('_lost');
+        let cleanLocation = isLostFromState ? currentUserState.current_location.replace('_lost', '') : currentUserState.current_location;
+        
+        if (isLostFromState) {
+            bgImage = 'random1.png';
+            gameStartPanel.classList.add('lost');
+        } else {
+            bgImage = getBackgroundImageForLocation(cleanLocation);
+            gameStartPanel.classList.remove('lost');
+        }
+        
+        setEnvironmentBackground(bgImage);
         gameStartPanel.classList.add('adventure');
-        if (currentUserState.current_location === 'city') {
+        
+        if (cleanLocation === 'city' || cleanLocation === 'mushroom_kingdom' || cleanLocation === 'mountain' || cleanLocation === 'demon_castle') {
             gameStartPanel.classList.add('city');
         }
-        if (battleUI) {
-            battleUI.classList.remove('hidden');
-        }
-        setBattleAttacks(currentCharacter);
         
-        // Then restore enemy from session
-        restoreEnemyFromSession();
+        const hasActiveEnemy = (currentEnemy !== null && currentEnemy.health > 0);
+        
+        if (hasActiveEnemy) {
+            if (battleUI) battleUI.classList.remove('hidden');
+            if (locationButtonsContainer) locationButtonsContainer.classList.add('hidden');
+            setBattleAttacks(currentCharacter);
+            restoreEnemyFromSession();
+        } else {
+            if (battleUI) battleUI.classList.add('hidden');
+            updateLocationButtons(cleanLocation, isLostFromState);
+        }
     } else {
-        // In village, show welcome message only once
         if (!welcomeMessageShown && !currentUserState.game_started) {
             setTimeout(() => {
                 setTypewriterMessage('Hello Adventurer, Your Goal is to Defeat the Demon Lord');
@@ -691,10 +1460,10 @@ function initializeGameState() {
         currentUserState.level = currentUserState.level || 0;
         activateGameSession();
     } else {
-        // If game not started, make sure we're in village
         setEnvironmentBackground('village.png');
         gameStartPanel.classList.remove('adventure');
         gameStartPanel.classList.remove('city');
+        gameStartPanel.classList.remove('lost');
         removeEnemy();
     }
 }
@@ -804,19 +1573,114 @@ if (gameStartOverlay) {
     });
 }
 
+// Modal Restart Buttons
+const victoryRestartBtn = document.getElementById('victoryRestartBtn');
+const gameOverRestartBtn = document.getElementById('gameOverRestartBtn');
+
+if (victoryRestartBtn) {
+    victoryRestartBtn.addEventListener('click', () => {
+        hideAllModals();
+        restartGameKeepProgress();
+    });
+}
+
+if (gameOverRestartBtn) {
+    gameOverRestartBtn.addEventListener('click', () => {
+        hideAllModals();
+        restartGameKeepProgress();
+    });
+}
+
 initializeGameState();
 
-// Add fadeOut keyframes
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes fadeOut {
-        from { opacity: 1; visibility: visible; }
-        to { opacity: 0; visibility: hidden; display: none; }
+// Modal styles
+const modalStyle = document.createElement('style');
+modalStyle.textContent = `
+    .game-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    
+    .game-modal.show {
+        opacity: 1;
+        visibility: visible;
+    }
+    
+    .game-modal-content {
+        background: #1a1a2e;
+        border-radius: 16px;
+        padding: 40px 60px;
+        text-align: center;
+        max-width: 400px;
+        width: 90%;
+        animation: modalPulse 0.5s ease-out;
+    }
+    
+    .victory-content {
+        border: 2px solid #ffd700;
+    }
+    
+    .gameover-content {
+        border: 2px solid #ff4444;
+    }
+    
+    @keyframes modalPulse {
+        0% { transform: scale(0.9); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    
+    .modal-title {
+        font-size: 36px;
+        margin: 20px 0;
+        font-weight: bold;
+        letter-spacing: 1px;
+    }
+    
+    .victory-title {
+        color: #ffd700;
+    }
+    
+    .gameover-title {
+        color: #ff4444;
+    }
+    
+    .modal-message {
+        font-size: 16px;
+        color: #cccccc;
+        margin: 15px 0;
+        line-height: 1.5;
+    }
+    
+    .modal-restart-btn {
+        background: #333366;
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        font-size: 16px;
+        font-weight: bold;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 20px;
+        transition: background 0.2s ease;
+    }
+    
+    .modal-restart-btn:hover {
+        background: #444477;
     }
 `;
-document.head.appendChild(style);
+document.head.appendChild(modalStyle);
 
-// Theme management
 let light = false;
 let notificationsShow = false;
 let friendsShow = false;

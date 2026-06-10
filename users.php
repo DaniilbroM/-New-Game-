@@ -44,7 +44,7 @@ class UserManager {
                 $changed = true;
             }
             if (!isset($user['xp_needed']) || !is_int($user['xp_needed'])) {
-                $user['xp_needed'] = 100;
+                $user['xp_needed'] = 6;
                 $changed = true;
             }
             if (!isset($user['selected_character']) || $user['selected_character'] === '' || !is_string($user['selected_character'])) {
@@ -150,7 +150,7 @@ class UserManager {
             'coins' => 0,
             'level' => 0,
             'xp' => 0,
-            'xp_needed' => 100,
+            'xp_needed' => 6,
             'selected_character' => null,
             'character_selected' => false,
             'game_started' => false,
@@ -159,7 +159,9 @@ class UserManager {
         ];
 
         $this->users[] = $newUser;
-        $_SESSION['users'][] = $newUser;
+        if (isset($_SESSION['users']) && is_array($_SESSION['users'])) {
+            $_SESSION['users'][] = $newUser;
+        }
         $this->saveUsers();
 
         return ['success' => true, 'message' => 'Registration successful'];
@@ -197,7 +199,7 @@ class UserManager {
                         $user['xp'] = 0;
                     }
                     if (!isset($user['xp_needed'])) {
-                        $user['xp_needed'] = 100;
+                        $user['xp_needed'] = 6;
                     }
                     if (!isset($user['selected_character'])) {
                         $user['selected_character'] = null;
@@ -229,12 +231,24 @@ class UserManager {
         
         $user['xp'] += $xpGain;
         $leveledUp = false;
+        $oldLevel = $user['level'];
         
-        while ($user['xp'] >= $user['xp_needed']) {
+        // XP requirements: Level 0->1: 6, 1->2: 9, 2->3: 15, 3->4: 30, Level 4 is max
+        while ($user['level'] < 4 && $user['xp'] >= $user['xp_needed']) {
             $user['xp'] -= $user['xp_needed'];
             $user['level']++;
-            $user['xp_needed'] = 100 + ($user['level'] * 25);
             $leveledUp = true;
+            
+            // Set next level requirement
+            if ($user['level'] == 1) {
+                $user['xp_needed'] = 9;
+            } elseif ($user['level'] == 2) {
+                $user['xp_needed'] = 15;
+            } elseif ($user['level'] == 3) {
+                $user['xp_needed'] = 30;
+            } elseif ($user['level'] == 4) {
+                $user['xp_needed'] = 999; // Max level
+            }
         }
         
         $this->updateUser($user);
@@ -250,7 +264,6 @@ class UserManager {
         return ['success' => true, 'new_coins' => $user['coins']];
     }
 
-    // ... rest of existing methods (getChatHistory, sendMessage, etc.) remain the same
     public function getChatHistory($username, $friendUsername) {
         $username = $this->sanitizeInput($username);
         $friendUsername = $this->sanitizeInput($friendUsername);

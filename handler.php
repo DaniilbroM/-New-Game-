@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'coins' => $currentUser['coins'] ?? 0,
                         'level' => $currentUser['level'] ?? 0,
                         'xp' => $currentUser['xp'] ?? 0,
-                        'xp_needed' => $currentUser['xp_needed'] ?? 100,
+                        'xp_needed' => $currentUser['xp_needed'] ?? 6,
                         'current_location' => $currentUser['current_location'] ?? 'village',
                         'temp_hp' => $currentUser['temp_hp'] ?? null
                     ],
@@ -98,6 +98,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
             }
         }
+    } elseif ($action === 'clear_enemy') {
+        unset($_SESSION['current_enemy']);
+        $response = ['success' => true];
     } elseif ($action === 'search_users') {
         if (!isset($_SESSION['current_user'])) {
             $response['message'] = 'Not logged in.';
@@ -167,62 +170,141 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $response['message'] = 'User not found.';
             } else {
                 $location = trim($_POST['location'] ?? '');
-                if (!in_array($location, ['forest', 'city'], true)) {
+                $validLocations = ['forest', 'city', 'mountain', 'mushroom_kingdom', 'river_village', 'village', 'demon_castle'];
+                
+                if (!in_array($location, $validLocations, true)) {
                     $response['message'] = 'Invalid location.';
                 } else {
-                    // Save current location to user data
-                    $currentUser['current_location'] = $location;
-                    $userManager->updateUser($currentUser);
+                    // Check if there's an active enemy - ONLY block if enemy exists AND has health > 0
+                    $hasActiveEnemy = (isset($_SESSION['current_enemy']) && 
+                                       $_SESSION['current_enemy'] !== null && 
+                                       isset($_SESSION['current_enemy']['health']) && 
+                                       $_SESSION['current_enemy']['health'] > 0);
                     
-                    // Always encounter mushroom (100% chance)
-                    $enemy = getRandomEnemyForLocation($location);
-                    
-                    if ($enemy) {
-                        // Store enemy in session for combat
-                        $_SESSION['current_enemy'] = [
-                            'type' => $enemy->type,
-                            'name' => $enemy->name,
-                            'health' => $enemy->health,
-                            'maxHealth' => $enemy->maxHealth,
-                            'strength' => $enemy->strength,
-                            'stamina' => $enemy->stamina,
-                            'stats' => $enemy->stats,
-                            'idleAnimation' => $enemy->idleAnimation,
-                            'attackAnimation' => $enemy->attackAnimation,
-                            'dieAnimation' => $enemy->dieAnimation,
-                            'hitAnimation' => $enemy->hitAnimation,
-                            'runAnimation' => $enemy->runAnimation,
-                            'stunnedAnimation' => $enemy->stunnedAnimation,
-                            'bleed_turns' => 0,
-                            'burn_turns' => 0,
-                            'bleed_active' => false,
-                            'burn_active' => false
-                        ];
-                        
+                    if ($hasActiveEnemy) {
                         $response = [
-                            'success' => true,
-                            'outcome' => 'encounter',
-                            'message' => "While walking through the $location you encountered a {$enemy->name}!",
-                            'detail' => "The {$enemy->name} has {$enemy->health} HP and looks ready to fight.",
-                            'background' => $location === 'forest' ? 'forest.png' : 'city.png',
-                            'enemy' => [
-                                'type' => $enemy->type,
-                                'name' => $enemy->name,
-                                'health' => $enemy->health,
-                                'maxHealth' => $enemy->maxHealth,
-                                'strength' => $enemy->strength,
-                                'stamina' => $enemy->stamina,
-                                'idleAnimation' => $enemy->idleAnimation
-                            ]
+                            'success' => false,
+                            'message' => 'You must defeat the enemy before traveling!',
+                            'outcome' => 'combat_active'
                         ];
                     } else {
-                        $response = [
-                            'success' => true,
-                            'outcome' => 'none',
-                            'message' => "The $location is quiet. No enemies in sight.",
-                            'detail' => "You walk through peacefully.",
-                            'background' => $location === 'forest' ? 'forest.png' : 'city.png'
-                        ];
+                        // Clear any stale enemy data
+                        $_SESSION['current_enemy'] = null;
+                        
+                        // Handle village specially
+                        if ($location === 'village') {
+                            $currentUser['current_location'] = 'village';
+                            $userManager->updateUser($currentUser);
+                            $response = [
+                                'success' => true,
+                                'outcome' => 'village',
+                                'message' => "You return to the peaceful village.",
+                                'background' => 'village.png',
+                                'enemy' => null
+                            ];
+                        } else {
+                            // Get random encounter outcome based on location
+                            $outcome = getRandomEventForLocation($location, $currentUser);
+                            
+                            if ($outcome['type'] === 'encounter' && $outcome['enemy']) {
+                                $enemy = $outcome['enemy'];
+                                
+                                $_SESSION['current_enemy'] = [
+                                    'type' => $enemy->type,
+                                    'name' => $enemy->name,
+                                    'health' => $enemy->health,
+                                    'maxHealth' => $enemy->maxHealth,
+                                    'strength' => $enemy->strength,
+                                    'stamina' => $enemy->stamina,
+                                    'stats' => $enemy->stats,
+                                    'idleAnimation' => $enemy->idleAnimation,
+                                    'attackAnimation' => $enemy->attackAnimation,
+                                    'dieAnimation' => $enemy->dieAnimation,
+                                    'hitAnimation' => $enemy->hitAnimation,
+                                    'runAnimation' => $enemy->runAnimation,
+                                    'stunnedAnimation' => $enemy->stunnedAnimation,
+                                    'bleed_turns' => 0,
+                                    'burn_turns' => 0,
+                                    'bleed_active' => false,
+                                    'burn_active' => false,
+                                    'stunned' => false,
+                                    'stun_turns' => 0
+                                ];
+                                
+                                $currentUser['current_location'] = $location;
+                                $userManager->updateUser($currentUser);
+                                
+                                $locationName = getLocationDisplayName($location);
+                                
+                                $response = [
+                                    'success' => true,
+                                    'outcome' => 'encounter',
+                                    'message' => "While exploring the $locationName you encountered a {$enemy->name}!",
+                                    'background' => getBackgroundImage($location),
+                                    'enemy' => [
+                                        'type' => $enemy->type,
+                                        'name' => $enemy->name,
+                                        'health' => $enemy->health,
+                                        'maxHealth' => $enemy->maxHealth,
+                                        'strength' => $enemy->strength,
+                                        'stamina' => $enemy->stamina,
+                                        'idleAnimation' => $enemy->idleAnimation
+                                    ]
+                                ];
+                            } elseif ($outcome['type'] === 'heal') {
+                                // Healing event - restore player HP
+                                $characterKey = $currentUser['selected_character'] ?? 'mage';
+                                $character = isset($characters[$characterKey]) ? $characters[$characterKey] : null;
+                                $maxHp = $character ? $character->health : 100;
+                                $currentUser['temp_hp'] = $maxHp;
+                                $userManager->updateUser($currentUser);
+                                
+                                $_SESSION['current_enemy'] = null;
+                                $currentUser['current_location'] = $location;
+                                $userManager->updateUser($currentUser);
+                                
+                                $locationName = getLocationDisplayName($location);
+                                
+                                $response = [
+                                    'success' => true,
+                                    'outcome' => 'heal',
+                                    'message' => "💚 You found a healing spring! Your HP is fully restored! 💚",
+                                    'background' => getBackgroundImage($location),
+                                    'enemy' => null,
+                                    'healed' => true,
+                                    'current_hp' => $maxHp
+                                ];
+                            } elseif ($outcome['type'] === 'lost') {
+                                // Lost state - stays in same location but with random background
+                                $currentUser['current_location'] = $location;
+                                $userManager->updateUser($currentUser);
+                                
+                                $locationName = getLocationDisplayName($location);
+                                
+                                $response = [
+                                    'success' => true,
+                                    'outcome' => 'lost',
+                                    'message' => "🌫️ You got lost in the $locationName! You wander around aimlessly... 🌫️",
+                                    'background' => 'random1.png',
+                                    'enemy' => null
+                                ];
+                            } else {
+                                // Safe - no enemy
+                                $_SESSION['current_enemy'] = null;
+                                $currentUser['current_location'] = $location;
+                                $userManager->updateUser($currentUser);
+                                
+                                $locationName = getLocationDisplayName($location);
+                                
+                                $response = [
+                                    'success' => true,
+                                    'outcome' => 'safe',
+                                    'message' => "The $locationName is peaceful. No enemies in sight.",
+                                    'background' => getBackgroundImage($location),
+                                    'enemy' => null
+                                ];
+                            }
+                        }
                     }
                 }
             }
@@ -230,7 +312,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'combat_action') {
         if (!isset($_SESSION['current_user'])) {
             $response['message'] = 'Not logged in.';
-        } elseif (!isset($_SESSION['current_enemy'])) {
+        } elseif (!isset($_SESSION['current_enemy']) || $_SESSION['current_enemy'] === null) {
             $response['message'] = 'No enemy to fight.';
         } else {
             $combatAction = $_POST['combat_action'] ?? '';
@@ -251,23 +333,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $bleedDamage = 2;
                 $enemy['health'] -= $bleedDamage;
                 $enemy['bleed_turns']--;
-                $effectMessage .= " Bleed deals $bleedDamage damage! ";
+                $effectMessage .= "🩸 Bleed deals $bleedDamage damage! ";
                 if ($enemy['bleed_turns'] <= 0) {
                     $enemy['bleed_active'] = false;
-                    $effectMessage .= " Bleed wore off. ";
+                    $effectMessage .= "Bleed wore off. ";
                 }
             }
             if ($enemy['burn_turns'] > 0) {
                 $burnDamage = 5;
                 $enemy['health'] -= $burnDamage;
                 $enemy['burn_turns']--;
-                $effectMessage .= " Burn deals $burnDamage damage! ";
+                $effectMessage .= "🔥 Burn deals $burnDamage damage! ";
                 if ($enemy['burn_turns'] <= 0) {
                     $enemy['burn_active'] = false;
-                    $effectMessage .= " Burn wore off. ";
+                    $effectMessage .= "Burn wore off. ";
                 }
             }
             $enemy['health'] = max(0, $enemy['health']);
+            
+            // Check if enemy is stunned from previous turn
+            $isEnemyStunned = ($enemy['stunned'] && $enemy['stun_turns'] > 0);
             
             if ($combatAction === 'attack') {
                 // Get the attack details from the character
@@ -275,55 +360,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $attacks = $character->attacks;
                 $selectedAttack = $attacks[$attackIndex] ?? $attacks[0];
                 $attackName = $selectedAttack['name'];
-                $attackDesc = $selectedAttack['description'];
                 
-                // Calculate damage based on character strength
+                // Calculate base damage using character strength
                 $characterStrength = $character ? ($character->stats['strength'] ?? 5) : 5;
-                $baseDamage = $characterStrength + random_int(1, 10);
+                $strengthBonus = rand(1, max(1, $characterStrength));
+                $baseDamage = rand(5, 12) + $strengthBonus;
                 $damage = $baseDamage;
+                $criticalHit = false;
                 
-                $message = "You used $attackName! ";
+                // Intelligence gives 5% critical chance per point
+                $intelligence = $character ? ($character->stats['intelligence'] ?? 5) : 5;
+                $criticalChance = $intelligence * 5;
+                $criticalRoll = rand(1, 100);
                 
-                // Apply bleed chance (30% for Fireball, 20% for Map Strike, 20% for Leg Kick, 30% for Sword Swing)
+                if ($criticalRoll <= $criticalChance) {
+                    $damage = $damage * 2;
+                    $criticalHit = true;
+                }
+                
+                $message = "";
+                if ($criticalHit) {
+                    $message .= "⚡ CRITICAL HIT! ⚡ ";
+                }
+                $message .= "You used $attackName! ";
+                
+                // Apply status chances based on attack
                 $bleedChance = 0;
                 $burnChance = 0;
+                $stunChance = 0;
+                $currentLocation = $currentUser['current_location'] ?? 'village';
                 
                 if (strpos($attackName, 'Fireball') !== false) {
                     $burnChance = 30;
+                    if ($currentLocation === 'forest') {
+                        $damage = round($damage * 1.1);
+                        $message .= "(+10% forest damage!) ";
+                    }
                 } elseif (strpos($attackName, 'Sword Swing') !== false) {
                     $bleedChance = 30;
+                    if ($currentLocation === 'city') {
+                        $damage = round($damage * 1.1);
+                        $message .= "(+10% city damage!) ";
+                    }
                 } elseif (strpos($attackName, 'Leg Kick') !== false) {
-                    $bleedChance = 20;
+                    $stunChance = 20;
                 } elseif (strpos($attackName, 'Map Strike') !== false) {
                     $bleedChance = 20;
+                    if ($currentLocation === 'city') {
+                        $damage = round($damage * 1.1);
+                        $message .= "(+10% city damage!) ";
+                    }
                 } elseif (strpos($attackName, 'Torch Jab') !== false) {
                     $burnChance = 25;
+                    if ($currentLocation === 'forest') {
+                        $damage = round($damage * 1.1);
+                        $message .= "(+10% forest damage!) ";
+                    }
                 }
                 
                 // Apply bleed chance
                 if ($bleedChance > 0 && !$enemy['bleed_active']) {
-                    $roll = random_int(1, 100);
+                    $roll = rand(1, 100);
                     if ($roll <= $bleedChance) {
                         $enemy['bleed_active'] = true;
                         $enemy['bleed_turns'] = 2;
-                        $message .= " Bleed applied! Enemy will take 2 damage for 2 turns and receive 10% more damage! ";
+                        $message .= "🩸 Bleed applied! ";
                     }
                 }
                 
                 // Apply burn chance
                 if ($burnChance > 0 && !$enemy['burn_active']) {
-                    $roll = random_int(1, 100);
+                    $roll = rand(1, 100);
                     if ($roll <= $burnChance) {
                         $enemy['burn_active'] = true;
                         $enemy['burn_turns'] = 3;
-                        $message .= " Burn applied! Enemy will take 5 damage for 3 turns! ";
+                        $message .= "🔥 Burn applied! ";
                     }
                 }
                 
-                // Apply 10% damage increase if bleed is active
+                // Apply stun chance
+                if ($stunChance > 0 && !$enemy['stunned']) {
+                    $roll = rand(1, 100);
+                    if ($roll <= $stunChance) {
+                        $enemy['stunned'] = true;
+                        $enemy['stun_turns'] = 1;
+                        $message .= "⚡ Stun applied! ";
+                    }
+                }
+                
+                // Apply 10% damage increase if bleed is active on enemy
                 if ($enemy['bleed_active']) {
                     $damage = round($damage * 1.1);
-                    $message .= " (+10% damage from bleed) ";
+                    $message .= "(+10% damage from bleed) ";
                 }
                 
                 // Apply damage
@@ -331,23 +459,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $enemy['health'] = max(0, $enemy['health']);
                 $message .= "You dealt $damage damage to the {$enemy['name']}!";
                 
-                // Enemy counterattack if still alive
+                // Enemy counterattack - ALWAYS happens if not stunned
                 $enemyDamage = 0;
+                $counterOccurred = false;
+                $stunPreventedCounter = false;
+                $enemyStrengthBonus = 0;
+                
                 if ($enemy['health'] > 0) {
-                    $enemyDamage = $enemy['strength'] + random_int(1, 8);
-                    $playerHP -= $enemyDamage;
-                    $playerHP = max(0, $playerHP);
-                    $currentUser['temp_hp'] = $playerHP;
-                    $message .= " The {$enemy['name']} counterattacks for $enemyDamage damage!";
+                    if ($isEnemyStunned) {
+                        $message .= " The {$enemy['name']} is stunned and cannot attack! ";
+                        $enemy['stun_turns']--;
+                        if ($enemy['stun_turns'] <= 0) {
+                            $enemy['stunned'] = false;
+                        }
+                        $stunPreventedCounter = true;
+                    } else {
+                        $enemyStrength = $enemy['strength'];
+                        $enemyStrengthBonus = rand(1, max(1, $enemyStrength));
+                        $enemyDamage = rand(5, 12) + $enemyStrengthBonus;
+                        $playerHP -= $enemyDamage;
+                        $playerHP = max(0, $playerHP);
+                        $currentUser['temp_hp'] = $playerHP;
+                        $message .= " The {$enemy['name']} counterattacks for $enemyDamage damage!";
+                        $counterOccurred = true;
+                    }
                 }
                 
                 $message .= $effectMessage;
                 
                 $_SESSION['current_enemy'] = $enemy;
-                $userManager->updateUser($currentUser);
                 
                 $enemyDefeated = $enemy['health'] <= 0;
                 $playerDefeated = $playerHP <= 0;
+                
+                // Check for enemy defeat FIRST before saving user
+                if ($enemyDefeated) {
+                    // Reward player for defeating enemy
+                    $coinsReward = 2;
+                    $xpReward = 3;
+                    
+                    // Bonus XP for demon castle enemies
+                    $currentLocation = $currentUser['current_location'] ?? 'village';
+                    if ($currentLocation === 'demon_castle') {
+                        $coinsReward = 5;
+                        $xpReward = 8;
+                    }
+                    
+                    $currentUser['coins'] = ($currentUser['coins'] ?? 0) + $coinsReward;
+                    $currentUser['xp'] = ($currentUser['xp'] ?? 0) + $xpReward;
+                    $leveledUp = false;
+                    
+                    // XP requirements: Level 0->1: 6, 1->2: 9, 2->3: 15, 3->4: 30, Level 4 is max
+                    $currentLevel = $currentUser['level'] ?? 0;
+                    
+                    if ($currentLevel < 4) {
+                        $xpNeededForNextLevel = 0;
+                        if ($currentLevel == 0) {
+                            $xpNeededForNextLevel = 6;
+                        } elseif ($currentLevel == 1) {
+                            $xpNeededForNextLevel = 9;
+                        } elseif ($currentLevel == 2) {
+                            $xpNeededForNextLevel = 15;
+                        } elseif ($currentLevel == 3) {
+                            $xpNeededForNextLevel = 30;
+                        }
+                        
+                        while ($currentUser['xp'] >= $xpNeededForNextLevel && $currentLevel < 4) {
+                            $currentUser['xp'] -= $xpNeededForNextLevel;
+                            $currentLevel++;
+                            $leveledUp = true;
+                            
+                            // Set next level requirement
+                            if ($currentLevel == 1) {
+                                $xpNeededForNextLevel = 9;
+                            } elseif ($currentLevel == 2) {
+                                $xpNeededForNextLevel = 15;
+                            } elseif ($currentLevel == 3) {
+                                $xpNeededForNextLevel = 30;
+                            } elseif ($currentLevel == 4) {
+                                $xpNeededForNextLevel = 999;
+                            }
+                        }
+                        
+                        $currentUser['level'] = $currentLevel;
+                        $currentUser['xp_needed'] = $xpNeededForNextLevel;
+                    }
+                    
+                    $userManager->updateUser($currentUser);
+                    unset($_SESSION['current_enemy']);
+                    
+                    $message .= " 💀 You defeated the {$enemy['name']} and gained $coinsReward coins and $xpReward XP! 💀";
+                    
+                    if ($leveledUp) {
+                        $message .= " 🎉 You leveled up to level {$currentUser['level']}! 🎉";
+                    }
+                } else {
+                    $userManager->updateUser($currentUser);
+                }
                 
                 $response = [
                     'success' => true,
@@ -360,49 +568,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'bleed_active' => $enemy['bleed_active'],
                     'bleed_turns' => $enemy['bleed_turns'],
                     'burn_active' => $enemy['burn_active'],
-                    'burn_turns' => $enemy['burn_turns']
+                    'burn_turns' => $enemy['burn_turns'],
+                    'stun_active' => $enemy['stunned'],
+                    'stun_turns' => $enemy['stun_turns'],
+                    'counter_damage' => $enemyDamage,
+                    'counter_occurred' => $counterOccurred,
+                    'stun_prevented_counter' => $stunPreventedCounter,
+                    'critical_hit' => $criticalHit,
+                    'strength_bonus' => $strengthBonus,
+                    'enemy_strength_bonus' => $enemyStrengthBonus
                 ];
                 
                 if ($enemyDefeated) {
-                    // Reward player for defeating enemy - 2 coins and 3 XP
-                    $coinsReward = 2;
-                    $xpReward = 3;
-                    
-                    $currentUser['coins'] = ($currentUser['coins'] ?? 0) + $coinsReward;
-                    
-                    // Add XP and check for level up
-                    $currentUser['xp'] = ($currentUser['xp'] ?? 0) + $xpReward;
-                    $leveledUp = false;
-                    
-                    $xpNeeded = $currentUser['xp_needed'] ?? 100;
-                    while ($currentUser['xp'] >= $xpNeeded) {
-                        $currentUser['xp'] -= $xpNeeded;
-                        $currentUser['level'] = ($currentUser['level'] ?? 0) + 1;
-                        $currentUser['xp_needed'] = 100 + ($currentUser['level'] * 25);
-                        $leveledUp = true;
-                    }
-                    
-                    $userManager->updateUser($currentUser);
-                    unset($_SESSION['current_enemy']);
-                    
                     $response['reward'] = $coinsReward;
                     $response['xp_reward'] = $xpReward;
                     $response['leveled_up'] = $leveledUp;
                     $response['new_level'] = $currentUser['level'];
                     $response['current_xp'] = $currentUser['xp'];
                     $response['xp_needed'] = $currentUser['xp_needed'];
-                    $response['message'] .= " You defeated the {$enemy['name']} and gained $coinsReward coins and $xpReward XP!";
-                    
-                    if ($leveledUp) {
-                        $response['message'] .= " You leveled up to level {$currentUser['level']}!";
-                    }
-                } else {
-                    // Save updated enemy and player HP to session
-                    $_SESSION['current_enemy'] = $enemy;
                 }
                 
                 if ($playerDefeated) {
-                    $response['message'] .= " You have been defeated!";
+                    $response['message'] .= " 💔 You have been defeated! Game Over! 💔";
                     unset($_SESSION['current_enemy']);
                     $currentUser['temp_hp'] = $character ? $character->health : 100;
                     $userManager->updateUser($currentUser);
@@ -458,6 +645,101 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+}
+
+// Helper functions for location logic
+
+function getRandomEventForLocation($location, $currentUser) {
+    if ($location === 'demon_castle') {
+        // 100% spawn chance in demon castle, with stronger mushroom
+        $enemy = getStrongMushroomEnemy();
+        return ['type' => 'encounter', 'enemy' => $enemy];
+    }
+    
+    if ($location === 'river_village') {
+        // 1/2 chance of healing, 1/2 chance of nothing
+        $roll = rand(1, 2);
+        if ($roll == 1) {
+            return ['type' => 'heal', 'enemy' => null];
+        } else {
+            return ['type' => 'safe', 'enemy' => null];
+        }
+    }
+    
+    if ($location === 'mountain' || $location === 'mushroom_kingdom') {
+        // 1/2 chance of enemy, 1/2 chance of nothing
+        $roll = rand(1, 2);
+        if ($roll == 1) {
+            $enemy = getEnemyByType('mushroom', true);
+            return ['type' => 'encounter', 'enemy' => $enemy];
+        } else {
+            return ['type' => 'safe', 'enemy' => null];
+        }
+    }
+    
+    if ($location === 'forest' || $location === 'city') {
+        // 3/5 chance of enemy (60%), 1/5 nothing (20%), 1/5 lost (20%)
+        $roll = rand(1, 5);
+        if ($roll <= 3) {  // 1,2,3 = enemy
+            $enemy = getEnemyByType('mushroom', true);
+            return ['type' => 'encounter', 'enemy' => $enemy];
+        } elseif ($roll == 4) {  // 4 = nothing
+            return ['type' => 'safe', 'enemy' => null];
+        } else {  // 5 = lost
+            return ['type' => 'lost', 'enemy' => null];
+        }
+    }
+    
+    return ['type' => 'safe', 'enemy' => null];
+}
+
+function getStrongMushroomEnemy() {
+    // Stronger mushroom with twice the HP and strength
+    $baseHealth = rand(80, 120);  // Twice the normal range (40-60 becomes 80-120)
+    $baseStrength = 6 + round(($baseHealth - 80) / 10);  // Starting at 6 instead of 3
+    
+    $enemy = new Enemy(
+        'mushroom',
+        'Demon Mushroom',
+        $baseHealth,
+        $baseStrength,
+        20,
+        ['hp' => $baseHealth, 'strength' => $baseStrength, 'stamina' => 20, 'intelligence' => 1],
+        'Mushroom/Mushroom-Idle.png',
+        'Mushroom/Mushroom-Attack.png',
+        'Mushroom/Mushroom-Die.png',
+        'Mushroom/Mushroom-Hit.png',
+        'Mushroom/Mushroom-Run.png',
+        'Mushroom/Mushroom-Stun.png'
+    );
+    
+    return $enemy;
+}
+
+function getLocationDisplayName($location) {
+    $names = [
+        'forest' => 'Forest',
+        'city' => 'City',
+        'mountain' => 'Mountain',
+        'mushroom_kingdom' => 'Mushroom Kingdom',
+        'river_village' => 'River Village',
+        'village' => 'Village',
+        'demon_castle' => 'Demon Castle'
+    ];
+    return $names[$location] ?? ucfirst($location);
+}
+
+function getBackgroundImage($location) {
+    $images = [
+        'forest' => 'forest.png',
+        'city' => 'city.png',
+        'mountain' => 'mountain.png',
+        'mushroom_kingdom' => 'kingdom.png',
+        'river_village' => 'river.png',
+        'village' => 'village.png',
+        'demon_castle' => 'Demon.png'
+    ];
+    return $images[$location] ?? $location . '.png';
 }
 
 while (ob_get_level()) {
